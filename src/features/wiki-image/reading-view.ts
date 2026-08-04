@@ -1,28 +1,20 @@
 import { MarkdownRenderChild } from "obsidian";
 
-import type { WikiImageCaptionSettings } from "./caption";
-import { cleanupWikiImageCaptions } from "./dom";
-import { WikiImageCaptionObserver } from "./observer";
-
-type SettingsProvider = () => WikiImageCaptionSettings;
+import type { WikiImageCaptionReadingCoordinator } from "./reading-coordinator";
 
 export class WikiImageCaptionRenderChild extends MarkdownRenderChild {
-	private readonly observer: WikiImageCaptionObserver;
-
 	constructor(
 		containerEl: HTMLElement,
-		getSettings: SettingsProvider,
+		private readonly coordinator: WikiImageCaptionReadingCoordinator,
 	) {
 		super(containerEl);
-		this.observer = new WikiImageCaptionObserver(containerEl, getSettings);
 	}
 
 	onload(): void {
-		this.observer.start();
+		this.coordinator.register(this.containerEl);
 	}
 
 	onunload(): void {
-		this.observer.stop();
-		cleanupWikiImageCaptions(this.containerEl);
+		this.coordinator.unregister(this.containerEl);
 	}
 }

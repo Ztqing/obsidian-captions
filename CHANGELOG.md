@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.3
+
+- Add independent enable/disable controls for the Wiki image and Pandoc engines.
+- Apply engine changes immediately in Reading view and Live Preview without restarting Obsidian.
+- Remove engine-owned captions, references, anchors, observers, decorations, and cached render state when an engine is disabled.
+- Migrate `0.0.2` settings with both existing engines enabled and validate persisted settings at runtime.
+
 ## 0.0.2
 
 - Add Pandoc captions for standalone standard Markdown figures and pipe tables with or without IDs.

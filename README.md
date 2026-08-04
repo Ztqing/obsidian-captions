@@ -2,12 +2,14 @@
 
 An Obsidian plugin for previewing image and table captions and cross-references.
 
-## 0.0.2
+## 0.0.3
 
-This release contains two independent features:
+This release contains two independently managed engines:
 
 - Obsidian Wiki image captions
 - Pandoc captions and pandoc-crossref previews for standard images, pipe tables, and references
+
+Both engines are enabled by default. Open **Settings > Captions > Engines** to enable or disable either engine without restarting Obsidian. Disabling an engine immediately removes its Reading view output and Live Preview decorations without changing the Markdown source. Existing `0.0.2` settings are migrated with both engines enabled.
 
 ### Wiki images
 
@@ -68,13 +70,12 @@ See [@tbl:results].
 
 Unlabelled captions and native IDs are not numbered and do not consume a counter. Only matching `fig:` and `tbl:` targets are numbered; figures and tables use independent counters starting from 1 in each note. The settings tab can customize the `Figure` and `Table` labels.
 
-Native anchors can be linked with normal Markdown links such as `[details](#results)`. Version 0.0.2 does not interpret Quarto `fig-` or `tbl-` identifiers as crossrefs. Cross-note references, chapter numbering, subfigures, and complex citation groups are not yet supported.
+Native anchors can be linked with normal Markdown links such as `[details](#results)`. Version 0.0.3 does not interpret Quarto `fig-` or `tbl-` identifiers as crossrefs. Cross-note references, chapter numbering, subfigures, and complex citation groups are not yet supported.
 
 Wiki image behavior is based on [bcs1037/wk-image-caption](https://github.com/bcs1037/wk-image-caption). Pandoc-crossref syntax follows [pandoc-crossref](https://lierdakil.github.io/pandoc-crossref/).
 
 ## Roadmap
 
-- `0.0.3`: Engine management
 - `0.0.4`: Quarto engine
 
 ## Development

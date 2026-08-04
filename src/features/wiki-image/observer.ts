@@ -39,6 +39,12 @@ export class WikiImageCaptionObserver {
 		this.observer = null;
 	}
 
+	refresh(): void {
+		if (!this.destroyed) {
+			this.render();
+		}
+	}
+
 	private scheduleRender(): void {
 		if (this.scheduled || this.destroyed) {
 			return;

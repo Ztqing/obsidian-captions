@@ -1,94 +1,59 @@
 import type { Extension } from "@codemirror/state";
-import { Plugin, TFile } from "obsidian";
+import { Plugin } from "obsidian";
 
-import { createPandocCrossrefEditorExtension } from "./features/pandoc-crossref/live-preview";
 import {
-	parsePandocCrossrefDocument,
-	type PandocCrossrefDocument,
-} from "./features/pandoc-crossref/parser";
+	CaptionEngineManager,
+	type CaptionEngineId,
+} from "./engine-manager";
+import { PandocCrossrefEngine } from "./features/pandoc-crossref/engine";
+import { WikiImageCaptionEngine } from "./features/wiki-image/engine";
 import {
-	PandocCrossrefReadingCoordinator,
-	PandocCrossrefSectionRenderChild,
-} from "./features/pandoc-crossref/reading-coordinator";
-import { cleanupPandocCrossrefReadingView } from "./features/pandoc-crossref/reading-view";
-import {
-	cleanupWikiImageCaptions,
-	hasWikiImageEmbed,
-	renderWikiImageCaptions,
-} from "./features/wiki-image/dom";
-import { createWikiImageCaptionEditorExtension } from "./features/wiki-image/live-preview";
-import { WikiImageCaptionRenderChild } from "./features/wiki-image/reading-view";
-import {
-	CaptionsSettingTab,
 	createDefaultSettings,
+	normalizeSettings,
 	type CaptionsPluginSettings,
-} from "./settings";
+} from "./settings-data";
+import { CaptionsSettingTab } from "./settings";
 
 export default class CaptionsPlugin extends Plugin {
 	settings: CaptionsPluginSettings = createDefaultSettings();
 
 	private readonly editorExtensions: Extension[] = [];
-	private readonly pandocDocuments = new Map<string, {
-		mtime: number;
-		document: Promise<PandocCrossrefDocument>;
-	}>();
-	private readonly pandocReadingCoordinator = new PandocCrossrefReadingCoordinator(
-		() => this.settings.pandocCrossref,
-	);
+	private engineManager: CaptionEngineManager | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		this.editorExtensions.push(...this.createEditorExtensions());
+		this.engineManager = new CaptionEngineManager(
+			[
+				new WikiImageCaptionEngine(
+					() => this.settings.wikiImage,
+					() => this.getMarkdownRoots(),
+				),
+				new PandocCrossrefEngine(
+					this.app,
+					() => this.settings.pandocCrossref,
+					() => this.getMarkdownRoots(),
+				),
+			],
+			(id) => this.isEngineEnabled(id),
+		);
+
+		this.editorExtensions.push(
+			...this.engineManager.createEditorExtensions(),
+		);
 		this.registerEditorExtension(this.editorExtensions);
 
-		this.registerMarkdownPostProcessor((el, context) => {
-			const sectionText = context.getSectionInfo(el)?.text ?? "";
-			if (!hasWikiImageEmbed(el, sectionText)) {
-				return;
-			}
-
-			renderWikiImageCaptions(el, this.settings.wikiImage);
-			context.addChild(
-				new WikiImageCaptionRenderChild(
-					el,
-					() => this.settings.wikiImage,
-				),
-			);
-		});
-
-		this.registerMarkdownPostProcessor((el, context) => {
-			const sourceFile = this.app.vault.getAbstractFileByPath(context.sourcePath);
-			if (!(sourceFile instanceof TFile)) {
-				return;
-			}
-
-			const sectionInfo = context.getSectionInfo(el);
-			if (sectionInfo === null) {
-				return;
-			}
-
-			context.addChild(
-				new PandocCrossrefSectionRenderChild(
-					el,
-					context.docId,
-					sectionInfo,
-					this.getPandocDocument(sourceFile),
-					this.pandocReadingCoordinator,
-				),
-			);
+		this.registerMarkdownPostProcessor((root, context) => {
+			this.engineManager?.attachReadingSection(root, context);
 		});
 
 		this.addSettingTab(new CaptionsSettingTab(this.app, this));
+		this.engineManager.refresh();
 	}
 
 	onunload(): void {
-		this.pandocDocuments.clear();
-		this.pandocReadingCoordinator.clear();
-		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
-			cleanupWikiImageCaptions(leaf.view.containerEl);
-			cleanupPandocCrossrefReadingView(leaf.view.containerEl);
-		}
+		this.engineManager?.cleanup();
+		this.engineManager = null;
 	}
 
 	async saveSettings(): Promise<void> {
@@ -96,60 +61,28 @@ export default class CaptionsPlugin extends Plugin {
 	}
 
 	refreshCaptions(): void {
+		if (this.engineManager === null) {
+			return;
+		}
+
 		this.editorExtensions.length = 0;
-		this.editorExtensions.push(...this.createEditorExtensions());
+		this.editorExtensions.push(
+			...this.engineManager.createEditorExtensions(),
+		);
 		this.app.workspace.updateOptions();
-		this.pandocReadingCoordinator.refresh();
-
-		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
-			renderWikiImageCaptions(
-				leaf.view.containerEl,
-				this.settings.wikiImage,
-			);
-		}
+		this.engineManager.refresh();
 	}
 
-	private createEditorExtensions(): Extension[] {
-		return [
-			createWikiImageCaptionEditorExtension(
-				() => this.settings.wikiImage,
-			),
-			createPandocCrossrefEditorExtension(
-				() => this.settings.pandocCrossref,
-			),
-		];
+	private isEngineEnabled(id: CaptionEngineId): boolean {
+		return this.settings.engines[id];
 	}
 
-	private getPandocDocument(
-		file: TFile,
-	): Promise<PandocCrossrefDocument> {
-		const cached = this.pandocDocuments.get(file.path);
-		if (cached?.mtime === file.stat.mtime) {
-			return cached.document;
-		}
-
-		const document = this.app.vault.cachedRead(file)
-			.then((source) => parsePandocCrossrefDocument(source));
-		this.pandocDocuments.set(file.path, {
-			mtime: file.stat.mtime,
-			document,
-		});
-		return document;
+	private getMarkdownRoots(): HTMLElement[] {
+		return this.app.workspace.getLeavesOfType("markdown")
+			.map((leaf) => leaf.view.containerEl);
 	}
 
 	private async loadSettings(): Promise<void> {
-		const stored = await this.loadData() as Partial<CaptionsPluginSettings> | null;
-		const defaults = createDefaultSettings();
-
-		this.settings = {
-			wikiImage: {
-				...defaults.wikiImage,
-				...stored?.wikiImage,
-			},
-			pandocCrossref: {
-				...defaults.pandocCrossref,
-				...stored?.pandocCrossref,
-			},
-		};
+		this.settings = normalizeSettings(await this.loadData());
 	}
 }

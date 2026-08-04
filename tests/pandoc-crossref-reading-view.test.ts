@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { parseHTML } from "linkedom";
 
 import { parsePandocCrossrefDocument } from "../src/features/pandoc-crossref/parser";
+import { PandocCrossrefReadingCoordinator } from "../src/features/pandoc-crossref/reading-coordinator";
 import {
 	cleanupPandocCrossrefReadingView,
 	renderPandocCrossrefReadingSections,
@@ -282,8 +283,91 @@ void test("pairs figures with duplicate captions by source order", () => {
 	);
 });
 
+void test("disables and re-enables Pandoc Reading view state", async () => {
+	const source = [
+		"| Crop | Yield |",
+		"| --- | ---: |",
+		"| Peas | 12 |",
+		"",
+		": Garden peas {#tbl:peas}",
+		"",
+		"See [@tbl:peas].",
+	].join("\n");
+	const model = parsePandocCrossrefDocument(source);
+	const { document } = parseHTML([
+		'<div id="table-section"><table><tbody><tr><td>Peas</td></tr></tbody></table></div>',
+		'<div id="caption-section"><p>: Garden peas {#tbl:peas}</p></div>',
+		'<div id="reference-section"><p>See [@tbl:peas].</p></div>',
+	].join(""));
+	const tableSection = requireElement(document, "#table-section");
+	const captionSection = requireElement(document, "#caption-section");
+	const referenceSection = requireElement(document, "#reference-section");
+	const coordinator = new PandocCrossrefReadingCoordinator(
+		() => ({ figureLabel: "Figure", tableLabel: "Table" }),
+	);
+	let loadCount = 0;
+	const loadDocument = (): Promise<typeof model> => {
+		loadCount += 1;
+		return Promise.resolve(model);
+	};
+
+	coordinator.registerSection(
+		"note",
+		tableSection,
+		{ lineStart: 0, lineEnd: 2 },
+		loadDocument,
+	);
+	coordinator.registerSection(
+		"note",
+		captionSection,
+		{ lineStart: 4, lineEnd: 4 },
+		loadDocument,
+	);
+	coordinator.registerSection(
+		"note",
+		referenceSection,
+		{ lineStart: 6, lineEnd: 6 },
+		loadDocument,
+	);
+	assert.equal(loadCount, 0);
+	assert.equal(document.querySelector("table > caption"), null);
+
+	coordinator.enable();
+	await flushCoordinatorUpdates();
+	assert.equal(loadCount, 3);
+	assert.equal(requireElement(document, "table").getAttribute("id"), "tbl:peas");
+	assert.equal(
+		requireElement(document, "table > caption").textContent,
+		"Table 1: Garden peas",
+	);
+	assert.equal(
+		requireElement(document, ".captions-pandoc-reference > a").textContent,
+		"Table 1",
+	);
+
+	coordinator.disable();
+	assert.equal(requireElement(document, "table").getAttribute("id"), null);
+	assert.equal(document.querySelector("table > caption"), null);
+	assert.equal(captionSection.textContent, ": Garden peas {#tbl:peas}");
+	assert.equal(referenceSection.textContent, "See [@tbl:peas].");
+
+	coordinator.enable();
+	await flushCoordinatorUpdates();
+	assert.equal(loadCount, 6);
+	assert.equal(requireElement(document, "table").getAttribute("id"), "tbl:peas");
+	assert.equal(document.querySelectorAll("table > caption").length, 1);
+	assert.equal(document.querySelectorAll(".captions-pandoc-reference").length, 1);
+	coordinator.clear();
+});
+
 function requireElement(document: Document, selector: string): HTMLElement {
 	const element = document.querySelector(selector);
 	assert.notEqual(element, null, `Expected ${selector} to exist`);
 	return element as HTMLElement;
+}
+
+async function flushCoordinatorUpdates(): Promise<void> {
+	await Promise.resolve();
+	await Promise.resolve();
+	await Promise.resolve();
 }

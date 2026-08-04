@@ -12,6 +12,7 @@ import {
 	renderWikiImageCaptions,
 } from "../src/features/wiki-image/dom";
 import { WikiImageCaptionObserver } from "../src/features/wiki-image/observer";
+import { WikiImageCaptionReadingCoordinator } from "../src/features/wiki-image/reading-coordinator";
 
 const NO_FILE_NAME_FALLBACK = { showFileNameAsCaption: false };
 const FILE_NAME_FALLBACK = { showFileNameAsCaption: true };
@@ -259,6 +260,48 @@ void test("renders a Wiki image that appears asynchronously in Reading view", as
 	assert.equal(document.querySelectorAll(".captions-wiki-caption").length, 1);
 
 	observer.stop();
+});
+
+void test("disables and re-enables Wiki Reading view observers", async () => {
+	const { document, window } = parseHTML([
+		'<div id="root"><span class="internal-embed image-embed"',
+		' src="assets/landscape.png" alt="Swiss Alps">',
+		'<img src="app://obsidian.md/landscape.png" alt="landscape.png">',
+		"</span></div>",
+	].join(""));
+	const root = requireElement(document, "#root");
+	const MutationObserverConstructor = window.MutationObserver as unknown as (
+		new (callback: MutationCallback) => MutationObserver
+	);
+	const coordinator = new WikiImageCaptionReadingCoordinator(
+		() => ({
+			showFileNameAsCaption: false,
+			alignment: "center",
+			style: "italic",
+		}),
+		(callback) => new MutationObserverConstructor(callback),
+	);
+
+	coordinator.register(root);
+	coordinator.enable();
+	assert.equal(
+		document.querySelector(".captions-wiki-caption")?.textContent,
+		"Swiss Alps",
+	);
+
+	coordinator.disable();
+	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+	const embed = requireElement(document, ".internal-embed");
+	embed.setAttribute("alt", "Updated caption");
+	await flushDomUpdates();
+	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+
+	coordinator.enable();
+	assert.equal(
+		document.querySelector(".captions-wiki-caption")?.textContent,
+		"Updated caption",
+	);
+	coordinator.clear();
 });
 
 function requireElement(document: Document, selector: string): HTMLElement {

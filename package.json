@@ -1,6 +1,6 @@
 {
 	"name": "captions",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "Display captions for figures and tables in Obsidian.",
 	"main": "main.js",
 	"type": "module",
