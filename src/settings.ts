@@ -5,9 +5,11 @@ import type {
 	WikiCaptionStyle,
 	WikiImageCaptionSettings,
 } from "./features/wiki-image/caption";
+import type { PandocCrossrefSettings } from "./features/pandoc-crossref/settings";
 
 export interface CaptionsPluginSettings {
 	wikiImage: WikiImageCaptionSettings;
+	pandocCrossref: PandocCrossrefSettings;
 }
 
 interface SettingsController {
@@ -22,6 +24,10 @@ export function createDefaultSettings(): CaptionsPluginSettings {
 			showFileNameAsCaption: false,
 			alignment: "center",
 			style: "italic",
+		},
+		pandocCrossref: {
+			figureLabel: "Figure",
+			tableLabel: "Table",
 		},
 	};
 }
@@ -82,6 +88,30 @@ export class CaptionsSettingTab extends PluginSettingTab {
 					}
 
 					this.controller.settings.wikiImage.style = value;
+					await this.controller.saveSettings();
+					this.controller.refreshCaptions();
+				}));
+
+		new Setting(this.containerEl)
+			.setName("Figure label")
+			.setDesc("Label used for pandoc-crossref figure captions and references.")
+			.addText((text) => text
+				.setPlaceholder("Figure")
+				.setValue(this.controller.settings.pandocCrossref.figureLabel)
+				.onChange(async (value) => {
+					this.controller.settings.pandocCrossref.figureLabel = value.trim() || "Figure";
+					await this.controller.saveSettings();
+					this.controller.refreshCaptions();
+				}));
+
+		new Setting(this.containerEl)
+			.setName("Table label")
+			.setDesc("Label used for pandoc-crossref table captions and references.")
+			.addText((text) => text
+				.setPlaceholder("Table")
+				.setValue(this.controller.settings.pandocCrossref.tableLabel)
+				.onChange(async (value) => {
+					this.controller.settings.pandocCrossref.tableLabel = value.trim() || "Table";
 					await this.controller.saveSettings();
 					this.controller.refreshCaptions();
 				}));

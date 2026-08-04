@@ -1,6 +1,16 @@
 import type { Extension } from "@codemirror/state";
-import { Plugin } from "obsidian";
+import { Plugin, TFile } from "obsidian";
 
+import { createPandocCrossrefEditorExtension } from "./features/pandoc-crossref/live-preview";
+import {
+	parsePandocCrossrefDocument,
+	type PandocCrossrefDocument,
+} from "./features/pandoc-crossref/parser";
+import {
+	PandocCrossrefReadingCoordinator,
+	PandocCrossrefSectionRenderChild,
+} from "./features/pandoc-crossref/reading-coordinator";
+import { cleanupPandocCrossrefReadingView } from "./features/pandoc-crossref/reading-view";
 import {
 	cleanupWikiImageCaptions,
 	hasWikiImageEmbed,
@@ -18,15 +28,23 @@ export default class CaptionsPlugin extends Plugin {
 	settings: CaptionsPluginSettings = createDefaultSettings();
 
 	private readonly editorExtensions: Extension[] = [];
+	private readonly pandocDocuments = new Map<string, {
+		mtime: number;
+		document: Promise<PandocCrossrefDocument>;
+	}>();
+	private readonly pandocReadingCoordinator = new PandocCrossrefReadingCoordinator(
+		() => this.settings.pandocCrossref,
+	);
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		this.editorExtensions.push(this.createEditorExtension());
+		this.editorExtensions.push(...this.createEditorExtensions());
 		this.registerEditorExtension(this.editorExtensions);
 
 		this.registerMarkdownPostProcessor((el, context) => {
-			if (!hasWikiImageEmbed(el)) {
+			const sectionText = context.getSectionInfo(el)?.text ?? "";
+			if (!hasWikiImageEmbed(el, sectionText)) {
 				return;
 			}
 
@@ -39,12 +57,37 @@ export default class CaptionsPlugin extends Plugin {
 			);
 		});
 
+		this.registerMarkdownPostProcessor((el, context) => {
+			const sourceFile = this.app.vault.getAbstractFileByPath(context.sourcePath);
+			if (!(sourceFile instanceof TFile)) {
+				return;
+			}
+
+			const sectionInfo = context.getSectionInfo(el);
+			if (sectionInfo === null) {
+				return;
+			}
+
+			context.addChild(
+				new PandocCrossrefSectionRenderChild(
+					el,
+					context.docId,
+					sectionInfo,
+					this.getPandocDocument(sourceFile),
+					this.pandocReadingCoordinator,
+				),
+			);
+		});
+
 		this.addSettingTab(new CaptionsSettingTab(this.app, this));
 	}
 
 	onunload(): void {
+		this.pandocDocuments.clear();
+		this.pandocReadingCoordinator.clear();
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			cleanupWikiImageCaptions(leaf.view.containerEl);
+			cleanupPandocCrossrefReadingView(leaf.view.containerEl);
 		}
 	}
 
@@ -54,8 +97,9 @@ export default class CaptionsPlugin extends Plugin {
 
 	refreshCaptions(): void {
 		this.editorExtensions.length = 0;
-		this.editorExtensions.push(this.createEditorExtension());
+		this.editorExtensions.push(...this.createEditorExtensions());
 		this.app.workspace.updateOptions();
+		this.pandocReadingCoordinator.refresh();
 
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			renderWikiImageCaptions(
@@ -65,10 +109,32 @@ export default class CaptionsPlugin extends Plugin {
 		}
 	}
 
-	private createEditorExtension(): Extension {
-		return createWikiImageCaptionEditorExtension(
-			() => this.settings.wikiImage,
-		);
+	private createEditorExtensions(): Extension[] {
+		return [
+			createWikiImageCaptionEditorExtension(
+				() => this.settings.wikiImage,
+			),
+			createPandocCrossrefEditorExtension(
+				() => this.settings.pandocCrossref,
+			),
+		];
+	}
+
+	private getPandocDocument(
+		file: TFile,
+	): Promise<PandocCrossrefDocument> {
+		const cached = this.pandocDocuments.get(file.path);
+		if (cached?.mtime === file.stat.mtime) {
+			return cached.document;
+		}
+
+		const document = this.app.vault.cachedRead(file)
+			.then((source) => parsePandocCrossrefDocument(source));
+		this.pandocDocuments.set(file.path, {
+			mtime: file.stat.mtime,
+			document,
+		});
+		return document;
 	}
 
 	private async loadSettings(): Promise<void> {
@@ -79,6 +145,10 @@ export default class CaptionsPlugin extends Plugin {
 			wikiImage: {
 				...defaults.wikiImage,
 				...stored?.wikiImage,
+			},
+			pandocCrossref: {
+				...defaults.pandocCrossref,
+				...stored?.pandocCrossref,
 			},
 		};
 	}

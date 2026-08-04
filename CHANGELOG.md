@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.2
+
+- Add Pandoc captions for standalone standard Markdown figures and pipe tables with or without IDs.
+- Treat native IDs as anchors without numbering.
+- Number only matching `fig:` and `tbl:` targets with independent counters in each note.
+- Render canonical `[@fig:label]` and `[@tbl:label]` references only for crossref targets.
+- Support Pandoc-crossref captions and references in Reading view and Live Preview.
+- Preserve the 0.0.1 Wiki image caption behavior as an independent feature.
+- Handle Wiki image embeds that finish rendering asynchronously in Reading view.
+
 ## 0.0.1
 
 - Display captions for Obsidian Wiki image embeds in Reading view and Live Preview.

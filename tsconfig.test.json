@@ -6,6 +6,7 @@
 		"module": "CommonJS",
 		"outDir": ".test-dist",
 		"rootDir": ".",
+		"skipLibCheck": true,
 		"types": ["node"]
 	},
 	"include": [

@@ -44,3 +44,48 @@
 .internal-embed.image-embed.captions-wiki-has-caption img {
 	display: block;
 }
+
+.captions-pandoc-source-marker,
+.captions-pandoc-source-caption,
+.captions-pandoc-reference-source {
+	display: none;
+}
+
+.captions-pandoc-figure-caption,
+.captions-pandoc-editor-caption {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 6px;
+	margin-bottom: 10px;
+	color: var(--text-muted);
+	font-size: 0.85em;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.captions-pandoc-table-caption {
+	caption-side: top;
+	padding-top: 0;
+	padding-bottom: 6px;
+	color: var(--text-muted);
+	font-size: 0.85em;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.captions-pandoc-editor-caption--table {
+	margin-top: 0;
+	margin-bottom: 6px;
+}
+
+.captions-pandoc-label {
+	font-weight: var(--font-semibold);
+}
+
+.captions-pandoc-reference > a,
+.captions-pandoc-editor-reference {
+	color: var(--link-color);
+	text-decoration-line: var(--link-decoration);
+	cursor: var(--cursor-link);
+}

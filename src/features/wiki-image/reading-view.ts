@@ -1,54 +1,28 @@
 import { MarkdownRenderChild } from "obsidian";
 
 import type { WikiImageCaptionSettings } from "./caption";
-import { renderWikiImageCaptions } from "./dom";
+import { cleanupWikiImageCaptions } from "./dom";
+import { WikiImageCaptionObserver } from "./observer";
 
 type SettingsProvider = () => WikiImageCaptionSettings;
 
 export class WikiImageCaptionRenderChild extends MarkdownRenderChild {
-	private observer: MutationObserver | null = null;
-	private scheduled = false;
-	private destroyed = false;
+	private readonly observer: WikiImageCaptionObserver;
 
 	constructor(
 		containerEl: HTMLElement,
-		private readonly getSettings: SettingsProvider,
+		getSettings: SettingsProvider,
 	) {
 		super(containerEl);
+		this.observer = new WikiImageCaptionObserver(containerEl, getSettings);
 	}
 
 	onload(): void {
-		this.observer = new MutationObserver(() => this.scheduleRender());
-		this.observer.observe(this.containerEl, {
-			attributeFilter: ["alt", "src"],
-			attributes: true,
-			childList: true,
-			subtree: true,
-		});
-		this.render();
+		this.observer.start();
 	}
 
 	onunload(): void {
-		this.destroyed = true;
-		this.observer?.disconnect();
-		this.observer = null;
-	}
-
-	private scheduleRender(): void {
-		if (this.scheduled || this.destroyed) {
-			return;
-		}
-
-		this.scheduled = true;
-		void Promise.resolve().then(() => {
-			this.scheduled = false;
-			if (!this.destroyed) {
-				this.render();
-			}
-		});
-	}
-
-	private render(): void {
-		renderWikiImageCaptions(this.containerEl, this.getSettings());
+		this.observer.stop();
+		cleanupWikiImageCaptions(this.containerEl);
 	}
 }

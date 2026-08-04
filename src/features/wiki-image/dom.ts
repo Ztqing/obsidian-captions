@@ -1,16 +1,22 @@
 import {
-	parseWikiImageCaption,
+	resolveWikiImageCaption,
 	type WikiImageCaptionSettings,
 } from "./caption";
 
-const WIKI_IMAGE_SELECTOR = ".internal-embed.image-embed";
+const INTERNAL_EMBED_SELECTOR = ".internal-embed";
+const WIKI_IMAGE_SELECTOR = `${INTERNAL_EMBED_SELECTOR}.image-embed`;
+const WIKI_IMAGE_SOURCE = /!\[\[[^\]\r\n]*\.(?:avif|bmp|gif|jpe?g|png|svg|webp)[^\]\r\n]*\]\]/iu;
 const CAPTION_CLASS = "captions-wiki-caption";
 const HAS_CAPTION_CLASS = "captions-wiki-has-caption";
 const CAPTION_MARKER = "captionsWikiCaption";
 
-export function hasWikiImageEmbed(root: HTMLElement): boolean {
-	return root.matches(WIKI_IMAGE_SELECTOR)
-		|| root.querySelector(WIKI_IMAGE_SELECTOR) !== null;
+export function hasWikiImageEmbed(
+	root: HTMLElement,
+	sourceText = "",
+): boolean {
+	return root.matches(INTERNAL_EMBED_SELECTOR)
+		|| root.querySelector(INTERNAL_EMBED_SELECTOR) !== null
+		|| WIKI_IMAGE_SOURCE.test(sourceText);
 }
 
 export function renderWikiImageCaptions(
@@ -68,36 +74,52 @@ function renderWikiImageCaption(
 
 	if (image === null) {
 		existingCaption?.remove();
-		embed.classList.remove(HAS_CAPTION_CLASS);
+		removeCaptionClass(embed);
 		return;
 	}
 
-	const altText = image.getAttribute("alt") || embed.getAttribute("alt");
-	const sourceText = image.getAttribute("src") || embed.getAttribute("src");
-	const captionText = parseWikiImageCaption(altText, settings, sourceText);
+	const captionText = resolveWikiImageCaption({
+		embedAlt: embed.getAttribute("alt"),
+		imageAlt: image.getAttribute("alt"),
+		embedSource: embed.getAttribute("src"),
+		imageSource: image.getAttribute("src"),
+	}, settings);
 
 	if (captionText === null) {
 		existingCaption?.remove();
-		embed.classList.remove(HAS_CAPTION_CLASS);
+		removeCaptionClass(embed);
 		delete image.dataset[CAPTION_MARKER];
 		return;
 	}
 
 	const caption = existingCaption
 		?? embed.ownerDocument.createElement("div");
-	caption.className = [
+	const className = [
 		CAPTION_CLASS,
 		`${CAPTION_CLASS}--${settings.alignment}`,
 		`${CAPTION_CLASS}--${settings.style}`,
 	].join(" ");
-	caption.textContent = captionText;
+	if (caption.className !== className) {
+		caption.className = className;
+	}
+	if (caption.textContent !== captionText) {
+		caption.textContent = captionText;
+	}
 
 	if (existingCaption === null) {
 		embed.appendChild(caption);
 	}
 
-	embed.classList.add(HAS_CAPTION_CLASS);
+	if (!embed.classList.contains(HAS_CAPTION_CLASS)) {
+		embed.classList.add(HAS_CAPTION_CLASS);
+	}
 	image.dataset[CAPTION_MARKER] = "true";
+}
+
+function removeCaptionClass(embed: HTMLElement): void {
+	if (embed.classList.contains(HAS_CAPTION_CLASS)) {
+		embed.classList.remove(HAS_CAPTION_CLASS);
+	}
 }
 
 function findDirectCaption(embed: HTMLElement): HTMLElement | null {
