@@ -1,0 +1,23 @@
+# Editor directories
+.vscode
+*.iml
+.idea
+
+# Dependency directories
+node_modules
+
+# Local-only guidance and generated release bundles
+AGENTS.md
+main.js
+*.map
+
+# Local vault/runtime state
+data.json
+.DS_Store
+
+# Test and build outputs
+.test-dist
+coverage/
+.eslintcache
+*.log
+*.tsbuildinfo

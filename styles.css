@@ -1,0 +1,46 @@
+.captions-wiki-caption {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	margin-top: 6px;
+	margin-bottom: 8px;
+	clear: both;
+	color: var(--text-muted);
+	font-size: 0.85em;
+	line-height: 1.4;
+}
+
+.captions-wiki-caption--left {
+	text-align: left;
+}
+
+.captions-wiki-caption--center {
+	text-align: center;
+}
+
+.captions-wiki-caption--right {
+	text-align: right;
+}
+
+.captions-wiki-caption--italic {
+	font-style: italic;
+}
+
+.captions-wiki-caption--normal {
+	font-style: normal;
+}
+
+.internal-embed.image-embed.captions-wiki-has-caption {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	vertical-align: top;
+}
+
+.internal-embed.image-embed.captions-wiki-has-caption > .image-wrapper {
+	width: 100%;
+}
+
+.internal-embed.image-embed.captions-wiki-has-caption img {
+	display: block;
+}
