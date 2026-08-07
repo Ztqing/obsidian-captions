@@ -1,13 +1,53 @@
 export type CaptionAlignment = "left" | "center" | "right";
-export type CaptionStyle = "italic" | "normal";
+export type CaptionStyle = "italic" | "normal" | "bold";
+export type CaptionPosition = "above" | "below";
 export type CaptionKind = "figure" | "table";
 
-export interface CaptionSettings {
+export const CAPTION_FONT_SIZE_PERCENT_MIN = 50;
+export const CAPTION_FONT_SIZE_PERCENT_MAX = 200;
+export const CAPTION_FONT_SIZE_PERCENT_STEP = 5;
+export const CAPTION_SPACING_PX_MIN = 0;
+export const CAPTION_SPACING_PX_MAX = 32;
+export const CAPTION_SPACING_PX_STEP = 1;
+
+export interface CaptionLabelSettings {
 	figureLabel: string;
 	tableLabel: string;
+}
+
+export interface CaptionAppearanceSettings {
 	alignment: CaptionAlignment;
 	style: CaptionStyle;
+	fontSizePercent: number;
+	spacingAbovePx: number;
+	spacingBelowPx: number;
+	figurePosition: CaptionPosition;
+	tablePosition: CaptionPosition;
+}
+
+export interface CaptionBehaviorSettings {
 	showFileNameAsCaption: boolean;
+}
+
+export interface CaptionSettings extends
+	CaptionLabelSettings,
+	CaptionAppearanceSettings,
+	CaptionBehaviorSettings {}
+
+export const DEFAULT_CAPTION_APPEARANCE: Readonly<CaptionAppearanceSettings> = {
+	alignment: "center",
+	style: "bold",
+	fontSizePercent: 85,
+	spacingAbovePx: 8,
+	spacingBelowPx: 8,
+	figurePosition: "below",
+	tablePosition: "above",
+};
+
+export interface CaptionAppearance {
+	classNames: string[];
+	cssVariables: ReadonlyArray<readonly [string, string]>;
+	signature: string;
 }
 
 export function getCaptionLabel(
@@ -18,13 +58,77 @@ export function getCaptionLabel(
 }
 
 export function getCaptionAppearanceClasses(
-	settings: Pick<CaptionSettings, "alignment" | "style">,
+	settings: Pick<CaptionAppearanceSettings, "alignment" | "style">,
 ): string[] {
 	return [
 		"captions-caption",
 		`captions-caption--${settings.alignment}`,
 		`captions-caption--${settings.style}`,
 	];
+}
+
+export function getCaptionAppearance(
+	settings: CaptionAppearanceSettings,
+	kind: CaptionKind,
+): CaptionAppearance {
+	const position = kind === "figure"
+		? settings.figurePosition
+		: settings.tablePosition;
+	return {
+		classNames: [
+			...getCaptionAppearanceClasses(settings),
+			`captions-caption--${kind}-${position}`,
+		],
+		cssVariables: [
+			["--captions-caption-font-size", `${settings.fontSizePercent}%`],
+			["--captions-caption-space-above", `${settings.spacingAbovePx}px`],
+			["--captions-caption-space-below", `${settings.spacingBelowPx}px`],
+		],
+		signature: [
+			settings.alignment,
+			settings.style,
+			settings.fontSizePercent,
+			settings.spacingAbovePx,
+			settings.spacingBelowPx,
+			kind,
+			position,
+		].join("|"),
+	};
+}
+
+export function applyCaptionAppearance(
+	element: HTMLElement,
+	appearance: CaptionAppearance,
+): void {
+	for (const [property, value] of appearance.cssVariables) {
+		element.style.setProperty(property, value);
+	}
+}
+
+export function placeCaptionRelativeToTarget(
+	container: HTMLElement,
+	target: HTMLElement,
+	caption: HTMLElement,
+	position: CaptionPosition,
+): void {
+	let anchor = target;
+	while (anchor.parentElement !== null && anchor.parentElement !== container) {
+		anchor = anchor.parentElement;
+	}
+
+	if (position === "above" && anchor.parentElement === container) {
+		if (
+			caption.parentElement !== container
+			|| caption.nextElementSibling !== anchor
+		) {
+			container.insertBefore(caption, anchor);
+		}
+	} else if (
+		caption.parentElement !== container
+		|| container.lastElementChild !== caption
+	) {
+		container.appendChild(caption);
+	}
 }
 
 export function getCleanFileName(sourceText: string | null): string | null {

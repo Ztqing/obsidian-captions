@@ -1,6 +1,6 @@
 .captions-caption {
 	color: var(--text-muted);
-	font-size: 0.85em;
+	font-size: var(--captions-caption-font-size, 85%);
 	line-height: 1.4;
 }
 
@@ -24,12 +24,17 @@
 	font-style: normal;
 }
 
+.captions-caption--bold {
+	font-style: normal;
+	font-weight: var(--font-semibold);
+}
+
 .captions-wiki-caption {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin-top: 6px;
-	margin-bottom: 8px;
+	margin-block-start: var(--captions-caption-space-above, 8px);
+	margin-block-end: var(--captions-caption-space-below, 8px);
 	clear: both;
 }
 
@@ -64,21 +69,22 @@
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin-top: 6px;
-	margin-bottom: 10px;
+	margin-block-start: var(--captions-caption-space-above, 8px);
+	margin-block-end: var(--captions-caption-space-below, 8px);
 }
 
 .captions-pandoc-table-caption,
 .captions-quarto-table-caption {
-	caption-side: top;
-	padding-top: 0;
-	padding-bottom: 6px;
+	padding-block-start: var(--captions-caption-space-above, 8px);
+	padding-block-end: var(--captions-caption-space-below, 8px);
 }
 
-.captions-pandoc-editor-caption--table,
-.captions-quarto-editor-caption--table {
-	margin-top: 0;
-	margin-bottom: 6px;
+.captions-caption--table-above {
+	caption-side: top;
+}
+
+.captions-caption--table-below {
+	caption-side: bottom;
 }
 
 .captions-pandoc-label,

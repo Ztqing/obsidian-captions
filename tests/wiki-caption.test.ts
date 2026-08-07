@@ -177,18 +177,37 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 	renderWikiImageCaptions(root, {
 		showFileNameAsCaption: false,
 		alignment: "center",
-		style: "italic",
+		style: "bold",
+		fontSizePercent: 85,
+		spacingAbovePx: 8,
+		spacingBelowPx: 8,
+		figurePosition: "below",
+		tablePosition: "above",
 	});
 
-	const renderedCaption = document.querySelector(".captions-wiki-caption");
+	const renderedCaption = document.querySelector<HTMLElement>(
+		".captions-wiki-caption",
+	);
 	assert.equal(renderedCaption?.textContent, caption);
 	assert.equal(
 		renderedCaption?.classList.contains("captions-caption--center"),
 		true,
 	);
 	assert.equal(
-		renderedCaption?.classList.contains("captions-caption--italic"),
+		renderedCaption?.classList.contains("captions-caption--bold"),
 		true,
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-font-size"),
+		"85%",
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-space-above"),
+		"8px",
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-space-below"),
+		"8px",
 	);
 	assert.equal(
 		document.querySelector(".internal-embed")?.classList.contains(
@@ -196,11 +215,20 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 		),
 		true,
 	);
+	assert.equal(
+		renderedCaption?.parentElement?.lastElementChild === renderedCaption,
+		true,
+	);
 
 	renderWikiImageCaptions(root, {
 		showFileNameAsCaption: false,
 		alignment: "right",
 		style: "normal",
+		fontSizePercent: 125,
+		spacingAbovePx: 1,
+		spacingBelowPx: 20,
+		figurePosition: "above",
+		tablePosition: "above",
 	});
 	assert.equal(document.querySelectorAll(".captions-wiki-caption").length, 1);
 	assert.equal(
@@ -214,6 +242,26 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 	assert.equal(
 		renderedCaption?.classList.contains("captions-caption--center"),
 		false,
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-font-size"),
+		"125%",
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-space-above"),
+		"1px",
+	);
+	assert.equal(
+		renderedCaption?.style.getPropertyValue("--captions-caption-space-below"),
+		"20px",
+	);
+	assert.equal(
+		renderedCaption?.parentElement?.firstElementChild === renderedCaption,
+		true,
+	);
+	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--figure-above"),
+		true,
 	);
 });
 
@@ -247,6 +295,11 @@ void test("renders a Wiki image that appears asynchronously in Reading view", as
 			showFileNameAsCaption: false,
 			alignment: "center",
 			style: "normal",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
 		}),
 		(callback) => new MutationObserverConstructor(callback),
 	);
@@ -298,6 +351,11 @@ void test("disables and re-enables Wiki Reading view observers", async () => {
 			showFileNameAsCaption: false,
 			alignment: "center",
 			style: "italic",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
 		}),
 		(callback) => new MutationObserverConstructor(callback),
 	);

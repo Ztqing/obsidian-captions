@@ -4,7 +4,9 @@ import type {
 	PandocCrossrefDocument,
 } from "./parser";
 import {
-	getCaptionAppearanceClasses,
+	applyCaptionAppearance,
+	getCaptionAppearance,
+	placeCaptionRelativeToTarget,
 	resolveImageCaption,
 } from "../../caption-settings";
 import {
@@ -201,12 +203,19 @@ function renderFigure(
 	if (caption === null) {
 		caption = block.ownerDocument.createElement("span");
 		caption.dataset.captionKey = target.key;
-		block.appendChild(caption);
 	}
+	const appearance = getCaptionAppearance(settings, "figure");
 	caption.className = [
 		FIGURE_CAPTION_CLASS,
-		...getCaptionAppearanceClasses(settings),
+		...appearance.classNames,
 	].join(" ");
+	applyCaptionAppearance(caption, appearance);
+	placeCaptionRelativeToTarget(
+		block,
+		image,
+		caption,
+		settings.figurePosition,
+	);
 
 	setCaptionContent(
 		caption,
@@ -266,14 +275,20 @@ function renderTable(
 	if (caption === null) {
 		caption = table.ownerDocument.createElement("caption");
 		caption.dataset.captionKey = target.key;
-		table.prepend(caption);
 	}
+	const appearance = getCaptionAppearance(settings, "table");
 	caption.className = [
 		TABLE_CAPTION_CLASS,
-		...getCaptionAppearanceClasses(settings),
+		...appearance.classNames,
 	].join(" ");
+	applyCaptionAppearance(caption, appearance);
 
 	setCaptionContent(caption, target, renderedCaption, settings);
+	if (settings.tablePosition === "above") {
+		table.prepend(caption);
+	} else {
+		table.appendChild(caption);
+	}
 }
 
 function findFigureImageForTarget(
@@ -549,11 +564,16 @@ function findDirectTableCaption(
 	table: HTMLTableElement,
 	key: string,
 ): HTMLTableCaptionElement | null {
-	const caption = table.caption;
-	return caption?.classList.contains(TABLE_CAPTION_CLASS)
-		&& caption.dataset.captionKey === key
-		? caption
-		: null;
+	for (const child of Array.from(table.children)) {
+		if (
+			child.tagName === "CAPTION"
+			&& child.classList.contains(TABLE_CAPTION_CLASS)
+			&& (child as HTMLElement).dataset.captionKey === key
+		) {
+			return child as HTMLTableCaptionElement;
+		}
+	}
+	return null;
 }
 
 function createCrossrefTargetsById(

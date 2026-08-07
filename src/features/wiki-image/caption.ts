@@ -2,17 +2,16 @@ import {
 	getCleanFileName,
 	resolveImageCaption,
 	type CaptionAlignment,
-	type CaptionSettings,
+	type CaptionAppearanceSettings,
+	type CaptionBehaviorSettings,
 	type CaptionStyle,
 } from "../../caption-settings";
 
 export type WikiCaptionAlignment = CaptionAlignment;
 export type WikiCaptionStyle = CaptionStyle;
 
-export type WikiImageCaptionSettings = Pick<
-	CaptionSettings,
-	"alignment" | "showFileNameAsCaption" | "style"
->;
+export type WikiImageCaptionSettings = CaptionAppearanceSettings
+	& CaptionBehaviorSettings;
 
 export interface WikiImageCaptionCandidates {
 	embedAlt: string | null;

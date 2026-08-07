@@ -17,7 +17,12 @@ void test("enables Wiki and selects Pandoc by default", () => {
 			figureLabel: "Figure",
 			tableLabel: "Table",
 			alignment: "center",
-			style: "italic",
+			style: "bold",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
 			showFileNameAsCaption: false,
 		},
 	});
@@ -47,6 +52,11 @@ void test("migrates 0.0.2 settings with both engines enabled", () => {
 		showFileNameAsCaption: true,
 		alignment: "left",
 		style: "normal",
+		fontSizePercent: 85,
+		spacingAbovePx: 8,
+		spacingBelowPx: 8,
+		figurePosition: "below",
+		tablePosition: "above",
 	});
 });
 
@@ -93,6 +103,11 @@ void test("migrates labels from the selected 0.0.4 standard engine", () => {
 		showFileNameAsCaption: false,
 		alignment: "center",
 		style: "italic",
+		fontSizePercent: 85,
+		spacingAbovePx: 8,
+		spacingBelowPx: 8,
+		figurePosition: "below",
+		tablePosition: "above",
 	});
 	assert.equal(normalizeSettings({
 		...stored,
@@ -126,7 +141,35 @@ void test("prefers and validates the 0.0.5 captions object", () => {
 		showFileNameAsCaption: true,
 		alignment: "right",
 		style: "normal",
+		fontSizePercent: 85,
+		spacingAbovePx: 8,
+		spacingBelowPx: 8,
+		figurePosition: "below",
+		tablePosition: "above",
 	});
+});
+
+void test("validates and quantizes 0.0.6 appearance values", () => {
+	const settings = normalizeSettings({
+		captions: {
+			figureLabel: "Figure",
+			tableLabel: "Table",
+			showFileNameAsCaption: false,
+			alignment: "center",
+			style: "italic",
+			fontSizePercent: 112,
+			spacingAbovePx: 6.4,
+			spacingBelowPx: 8.7,
+			figurePosition: "above",
+			tablePosition: "below",
+		},
+	});
+
+	assert.equal(settings.captions.fontSizePercent, 110);
+	assert.equal(settings.captions.spacingAbovePx, 6);
+	assert.equal(settings.captions.spacingBelowPx, 9);
+	assert.equal(settings.captions.figurePosition, "above");
+	assert.equal(settings.captions.tablePosition, "below");
 });
 
 void test("normalizes missing and invalid persisted engine values", () => {
@@ -142,6 +185,11 @@ void test("normalizes missing and invalid persisted engine values", () => {
 			showFileNameAsCaption: "yes",
 			alignment: "right",
 			style: null,
+			fontSizePercent: Number.POSITIVE_INFINITY,
+			spacingAbovePx: -1,
+			spacingBelowPx: "8",
+			figurePosition: "left",
+			tablePosition: null,
 		},
 		wikiImage: {
 			showFileNameAsCaption: "yes",
@@ -169,7 +217,12 @@ void test("normalizes missing and invalid persisted engine values", () => {
 			tableLabel: "Table",
 			showFileNameAsCaption: false,
 			alignment: "right",
-			style: "italic",
+			style: "bold",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
 		},
 	});
 	assert.deepEqual(normalizeSettings(null), createDefaultSettings());

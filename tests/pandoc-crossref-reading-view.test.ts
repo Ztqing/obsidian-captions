@@ -14,7 +14,12 @@ const CAPTION_SETTINGS = {
 	figureLabel: "Figure",
 	tableLabel: "Table",
 	alignment: "center",
-	style: "italic",
+	style: "bold",
+	fontSizePercent: 85,
+	spacingAbovePx: 8,
+	spacingBelowPx: 8,
+	figurePosition: "below",
+	tablePosition: "above",
 	showFileNameAsCaption: false,
 } as const;
 
@@ -53,10 +58,8 @@ void test("pairs a table and caption rendered in separate Obsidian sections", ()
 
 	const table = requireElement(document, "table");
 	assert.equal(table.getAttribute("id"), "tbl:peas");
-	assert.equal(
-		requireElement(document, "table > caption").textContent,
-		"Table 1: Garden peas",
-	);
+	const caption = requireElement(document, "table > caption");
+	assert.equal(caption.textContent, "Table 1: Garden peas");
 	assert.equal(
 		requireElement(document, "table > caption").classList.contains(
 			"captions-caption--center",
@@ -64,8 +67,20 @@ void test("pairs a table and caption rendered in separate Obsidian sections", ()
 		true,
 	);
 	assert.equal(
+		caption.style.getPropertyValue("--captions-caption-font-size"),
+		"85%",
+	);
+	assert.equal(
+		caption.style.getPropertyValue("--captions-caption-space-above"),
+		"8px",
+	);
+	assert.equal(
+		caption.style.getPropertyValue("--captions-caption-space-below"),
+		"8px",
+	);
+	assert.equal(
 		requireElement(document, "table > caption").classList.contains(
-			"captions-caption--italic",
+			"captions-caption--bold",
 		),
 		true,
 	);
@@ -77,6 +92,27 @@ void test("pairs a table and caption rendered in separate Obsidian sections", ()
 	const reference = requireElement(document, ".captions-pandoc-reference > a");
 	assert.equal(reference.textContent, "Table 1");
 	assert.equal(reference.getAttribute("href"), "#tbl:peas");
+	assert.equal(reference.getAttribute("style"), null);
+	assert.equal(table.firstElementChild === caption, true);
+	assert.equal(
+		caption.classList.contains("captions-caption--table-above"),
+		true,
+	);
+
+	renderPandocCrossrefReadingSections(
+		[
+			{ root: tableSection, lineStart: 0, lineEnd: 2 },
+			{ root: captionSection, lineStart: 4, lineEnd: 4 },
+			{ root: referenceSection, lineStart: 6, lineEnd: 6 },
+		],
+		model,
+		{ ...CAPTION_SETTINGS, tablePosition: "below" },
+	);
+	assert.equal(table.lastElementChild === caption, true);
+	assert.equal(
+		caption.classList.contains("captions-caption--table-below"),
+		true,
+	);
 
 	for (const root of [tableSection, captionSection, referenceSection]) {
 		cleanupPandocCrossrefReadingView(root);
@@ -324,7 +360,9 @@ void test("uses file-name fallback and refreshes Pandoc figure appearance", () =
 		model,
 		CAPTION_SETTINGS,
 	);
-	let captions = root.querySelectorAll(".captions-pandoc-figure-caption");
+	let captions = root.querySelectorAll<HTMLElement>(
+		".captions-pandoc-figure-caption",
+	);
 	assert.equal(captions.length, 1);
 	assert.equal(captions[0]?.textContent, "Figure 1");
 
@@ -336,10 +374,16 @@ void test("uses file-name fallback and refreshes Pandoc figure appearance", () =
 			figureLabel: "Illustration",
 			alignment: "right",
 			style: "normal",
+			fontSizePercent: 120,
+			spacingAbovePx: 2,
+			spacingBelowPx: 14,
+			figurePosition: "above",
 			showFileNameAsCaption: true,
 		},
 	);
-	captions = root.querySelectorAll(".captions-pandoc-figure-caption");
+	captions = root.querySelectorAll<HTMLElement>(
+		".captions-pandoc-figure-caption",
+	);
 	assert.deepEqual(Array.from(captions).map((caption) => caption.textContent), [
 		"Swiss Alps.png",
 		"Illustration 1: numbered.png",
@@ -347,8 +391,27 @@ void test("uses file-name fallback and refreshes Pandoc figure appearance", () =
 	for (const caption of Array.from(captions)) {
 		assert.equal(caption.classList.contains("captions-caption--right"), true);
 		assert.equal(caption.classList.contains("captions-caption--normal"), true);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-font-size"),
+			"120%",
+		);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-space-above"),
+			"2px",
+		);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-space-below"),
+			"14px",
+		);
 	}
 	assert.equal(captions.length, 2);
+	for (const caption of Array.from(captions)) {
+		assert.equal(caption.parentElement?.firstElementChild === caption, true);
+		assert.equal(
+			caption.classList.contains("captions-caption--figure-above"),
+			true,
+		);
+	}
 });
 
 void test("disables and re-enables Pandoc Reading view state", async () => {

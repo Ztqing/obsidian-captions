@@ -14,7 +14,12 @@ const CAPTION_SETTINGS = {
 	figureLabel: "Figure",
 	tableLabel: "Table",
 	alignment: "center",
-	style: "italic",
+	style: "bold",
+	fontSizePercent: 85,
+	spacingAbovePx: 8,
+	spacingBelowPx: 8,
+	figurePosition: "below",
+	tablePosition: "above",
 	showFileNameAsCaption: false,
 } as const;
 
@@ -58,13 +63,34 @@ void test("renders Quarto figures, tables, and bare references across sections",
 	const figure = requireElement(document, "#figure-section > p");
 	const table = requireElement(document, "table");
 	assert.equal(figure.getAttribute("id"), "fig-architecture");
-	assert.equal(
-		requireElement(document, ".captions-quarto-figure-caption").textContent,
-		"Figure 1: Architecture",
+	const figureCaption = requireElement(
+		document,
+		".captions-quarto-figure-caption",
 	);
+	assert.equal(figureCaption.textContent, "Figure 1: Architecture");
 	assert.equal(
 		requireElement(document, ".captions-quarto-figure-caption")
 			.classList.contains("captions-caption--center"),
+		true,
+	);
+	assert.equal(
+		figureCaption.style.getPropertyValue("--captions-caption-font-size"),
+		"85%",
+	);
+	assert.equal(
+		figureCaption.style.getPropertyValue("--captions-caption-space-above"),
+		"8px",
+	);
+	assert.equal(
+		figureCaption.style.getPropertyValue("--captions-caption-space-below"),
+		"8px",
+	);
+	assert.equal(
+		figureCaption.parentElement?.lastElementChild === figureCaption,
+		true,
+	);
+	assert.equal(
+		figureCaption.classList.contains("captions-caption--bold"),
 		true,
 	);
 	assert.equal(table.getAttribute("id"), "tbl-results");
@@ -81,6 +107,27 @@ void test("renders Quarto figures, tables, and bare references across sections",
 		"#fig-architecture",
 		"#tbl-results",
 	]);
+	assert.deepEqual(Array.from(references).map((reference) => reference.getAttribute("style")), [
+		null,
+		null,
+	]);
+	const tableCaption = requireElement(document, "table > caption");
+	assert.equal(table.firstElementChild === tableCaption, true);
+	renderQuartoReadingSections(
+		[
+			{ root: figureSection, lineStart: 0, lineEnd: 0 },
+			{ root: tableSection, lineStart: 2, lineEnd: 4 },
+			{ root: captionSection, lineStart: 6, lineEnd: 6 },
+			{ root: referenceSection, lineStart: 8, lineEnd: 8 },
+		],
+		model,
+		{ ...CAPTION_SETTINGS, tablePosition: "below" },
+	);
+	assert.equal(table.lastElementChild === tableCaption, true);
+	assert.equal(
+		tableCaption.classList.contains("captions-caption--table-below"),
+		true,
+	);
 
 	for (const root of [figureSection, tableSection, captionSection, referenceSection]) {
 		cleanupQuartoReadingView(root);
@@ -153,11 +200,17 @@ void test("uses file-name fallback for empty Quarto figures", () => {
 			figureLabel: "Image",
 			alignment: "left",
 			style: "normal",
+			fontSizePercent: 70,
+			spacingAbovePx: 0,
+			spacingBelowPx: 16,
+			figurePosition: "above",
 			showFileNameAsCaption: true,
 		},
 	);
 
-	const captions = root.querySelectorAll(".captions-quarto-figure-caption");
+	const captions = root.querySelectorAll<HTMLElement>(
+		".captions-quarto-figure-caption",
+	);
 	assert.deepEqual(Array.from(captions).map((caption) => caption.textContent), [
 		"Results 2026.svg",
 		"Image 1: numbered.webp",
@@ -165,6 +218,21 @@ void test("uses file-name fallback for empty Quarto figures", () => {
 	for (const caption of Array.from(captions)) {
 		assert.equal(caption.classList.contains("captions-caption--left"), true);
 		assert.equal(caption.classList.contains("captions-caption--normal"), true);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-font-size"),
+			"70%",
+		);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-space-above"),
+			"0px",
+		);
+		assert.equal(
+			caption.style.getPropertyValue("--captions-caption-space-below"),
+			"16px",
+		);
+	}
+	for (const caption of Array.from(captions)) {
+		assert.equal(caption.parentElement?.firstElementChild === caption, true);
 	}
 });
 

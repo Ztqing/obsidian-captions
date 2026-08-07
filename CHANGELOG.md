@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.6
+
+- Add shared caption font-size and spacing controls for Wiki, Pandoc, and Quarto captions.
+- Apply the same appearance in Reading view and Live Preview without styling cross-reference links.
+- Separate caption labels, appearance, and behavior in the settings UI while preserving existing stored keys.
+- Add bold as a caption font-style option and use it as the default for new or incomplete settings.
+- Add independent above/below position controls for figure and table captions.
+- Use cross-platform defaults of 85% font size, 8px spacing above, and 8px spacing below.
+
 ## 0.0.5
 
 - Consolidate figure labels, table labels, alignment, font style, and file-name fallback into shared caption defaults.

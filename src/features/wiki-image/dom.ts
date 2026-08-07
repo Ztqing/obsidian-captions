@@ -2,7 +2,11 @@ import {
 	resolveWikiImageCaption,
 	type WikiImageCaptionSettings,
 } from "./caption";
-import { getCaptionAppearanceClasses } from "../../caption-settings";
+import {
+	applyCaptionAppearance,
+	getCaptionAppearance,
+	placeCaptionRelativeToTarget,
+} from "../../caption-settings";
 
 const INTERNAL_EMBED_SELECTOR = ".internal-embed";
 const WIKI_IMAGE_SELECTOR = `${INTERNAL_EMBED_SELECTOR}.image-embed`;
@@ -95,20 +99,25 @@ function renderWikiImageCaption(
 
 	const caption = existingCaption
 		?? embed.ownerDocument.createElement("div");
+	const appearance = getCaptionAppearance(settings, "figure");
 	const className = [
 		CAPTION_CLASS,
-		...getCaptionAppearanceClasses(settings),
+		...appearance.classNames,
 	].join(" ");
 	if (caption.className !== className) {
 		caption.className = className;
 	}
+	applyCaptionAppearance(caption, appearance);
 	if (caption.textContent !== captionText) {
 		caption.textContent = captionText;
 	}
 
-	if (existingCaption === null) {
-		embed.appendChild(caption);
-	}
+	placeCaptionRelativeToTarget(
+		embed,
+		image,
+		caption,
+		settings.figurePosition,
+	);
 
 	if (!embed.classList.contains(HAS_CAPTION_CLASS)) {
 		embed.classList.add(HAS_CAPTION_CLASS);

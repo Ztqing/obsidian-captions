@@ -1,7 +1,15 @@
-import type {
-	CaptionAlignment,
-	CaptionSettings,
-	CaptionStyle,
+import {
+	CAPTION_FONT_SIZE_PERCENT_MAX,
+	CAPTION_FONT_SIZE_PERCENT_MIN,
+	CAPTION_FONT_SIZE_PERCENT_STEP,
+	CAPTION_SPACING_PX_MAX,
+	CAPTION_SPACING_PX_MIN,
+	CAPTION_SPACING_PX_STEP,
+	DEFAULT_CAPTION_APPEARANCE,
+	type CaptionAlignment,
+	type CaptionPosition,
+	type CaptionSettings,
+	type CaptionStyle,
 } from "./caption-settings";
 import type {
 	CaptionsEngineSettings,
@@ -24,8 +32,7 @@ export function createDefaultSettings(): CaptionsPluginSettings {
 			figureLabel: "Figure",
 			tableLabel: "Table",
 			showFileNameAsCaption: false,
-			alignment: "center",
-			style: "italic",
+			...DEFAULT_CAPTION_APPEARANCE,
 		},
 	};
 }
@@ -72,6 +79,11 @@ export function normalizeSettings(stored: unknown): CaptionsPluginSettings {
 				wikiImage?.style,
 				defaults.captions.style,
 			),
+			fontSizePercent: defaults.captions.fontSizePercent,
+			spacingAbovePx: defaults.captions.spacingAbovePx,
+			spacingBelowPx: defaults.captions.spacingBelowPx,
+			figurePosition: defaults.captions.figurePosition,
+			tablePosition: defaults.captions.tablePosition,
 		}
 		: defaults.captions;
 
@@ -101,6 +113,35 @@ export function normalizeSettings(stored: unknown): CaptionsPluginSettings {
 			style: readStyle(
 				captions?.style,
 				captionFallbacks.style,
+			),
+			fontSizePercent: readQuantizedNumber(
+				captions?.fontSizePercent,
+				captionFallbacks.fontSizePercent,
+				CAPTION_FONT_SIZE_PERCENT_MIN,
+				CAPTION_FONT_SIZE_PERCENT_MAX,
+				CAPTION_FONT_SIZE_PERCENT_STEP,
+			),
+			spacingAbovePx: readQuantizedNumber(
+				captions?.spacingAbovePx,
+				captionFallbacks.spacingAbovePx,
+				CAPTION_SPACING_PX_MIN,
+				CAPTION_SPACING_PX_MAX,
+				CAPTION_SPACING_PX_STEP,
+			),
+			spacingBelowPx: readQuantizedNumber(
+				captions?.spacingBelowPx,
+				captionFallbacks.spacingBelowPx,
+				CAPTION_SPACING_PX_MIN,
+				CAPTION_SPACING_PX_MAX,
+				CAPTION_SPACING_PX_STEP,
+			),
+			figurePosition: readPosition(
+				captions?.figurePosition,
+				captionFallbacks.figurePosition,
+			),
+			tablePosition: readPosition(
+				captions?.tablePosition,
+				captionFallbacks.tablePosition,
 			),
 		},
 	};
@@ -146,7 +187,9 @@ function readLegacyAlignment(
 }
 
 function readLegacyStyle(value: unknown, fallback: CaptionStyle): CaptionStyle {
-	return value === "italic" || value === "normal" ? value : fallback;
+	return value === "italic" || value === "normal" || value === "bold"
+		? value
+		: fallback;
 }
 
 function readStandardMarkdownEngine(
@@ -180,7 +223,36 @@ function readStyle(
 	value: unknown,
 	fallback: CaptionStyle,
 ): CaptionStyle {
-	return value === "italic" || value === "normal" ? value : fallback;
+	return value === "italic" || value === "normal" || value === "bold"
+		? value
+		: fallback;
+}
+
+function readPosition(
+	value: unknown,
+	fallback: CaptionPosition,
+): CaptionPosition {
+	return value === "above" || value === "below" ? value : fallback;
+}
+
+function readQuantizedNumber(
+	value: unknown,
+	fallback: number,
+	min: number,
+	max: number,
+	step: number,
+): number {
+	if (
+		typeof value !== "number"
+		|| !Number.isFinite(value)
+		|| value < min
+		|| value > max
+	) {
+		return fallback;
+	}
+
+	const stepsFromMinimum = Math.round((value - min) / step);
+	return min + stepsFromMinimum * step;
 }
 
 function readLabel(value: unknown, fallback: string): string {

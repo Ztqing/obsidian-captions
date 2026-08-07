@@ -10,8 +10,10 @@ import {
 } from "@codemirror/view";
 import { editorLivePreviewField } from "obsidian";
 import {
-	getCaptionAppearanceClasses,
+	applyCaptionAppearance,
+	getCaptionAppearance,
 	resolveImageCaption,
+	type CaptionAppearance,
 } from "../../caption-settings";
 
 import {
@@ -58,6 +60,7 @@ class QuartoCaptionWidget extends WidgetType {
 	private readonly labelText: string | null;
 	private readonly captionText: string | null;
 	private readonly className: string;
+	private readonly appearance: CaptionAppearance;
 
 	constructor(
 		private readonly target: QuartoCaptionTarget,
@@ -74,10 +77,11 @@ class QuartoCaptionWidget extends WidgetType {
 		this.labelText = isQuartoCrossrefTarget(target)
 			? `${getQuartoTargetLabel(target.kind, settings)} ${target.identity.number}`
 			: null;
+		this.appearance = getCaptionAppearance(settings, target.kind);
 		this.className = [
 			"captions-quarto-editor-caption",
 			`captions-quarto-editor-caption--${this.target.kind}`,
-			...getCaptionAppearanceClasses(settings),
+			...this.appearance.classNames,
 		].join(" ");
 	}
 
@@ -88,12 +92,14 @@ class QuartoCaptionWidget extends WidgetType {
 			&& getQuartoTargetId(this.target) === getQuartoTargetId(other.target)
 			&& this.labelText === other.labelText
 			&& this.captionText === other.captionText
-			&& this.className === other.className;
+			&& this.className === other.className
+			&& this.appearance.signature === other.appearance.signature;
 	}
 
 	toDOM(view: EditorView): HTMLElement {
 		const caption = view.dom.ownerDocument.createElement("div");
 		caption.className = this.className;
+		applyCaptionAppearance(caption, this.appearance);
 		caption.dataset.captionKey = this.target.key;
 		const id = getQuartoTargetId(this.target);
 		if (id !== null) {
@@ -196,11 +202,6 @@ function buildDecorations(
 					target.markerTo,
 				));
 			}
-			ranges.push(Decoration.widget({
-				block: true,
-				side: 1,
-				widget: new QuartoCaptionWidget(target, settings),
-			}).range(target.targetTo));
 		} else {
 			if (target.markerFrom !== null && target.markerTo !== null) {
 				const hiddenLineTo = target.markerTo < view.state.doc.length
@@ -211,12 +212,16 @@ function buildDecorations(
 					hiddenLineTo,
 				));
 			}
-			ranges.push(Decoration.widget({
-				block: true,
-				side: -1,
-				widget: new QuartoCaptionWidget(target, settings),
-			}).range(target.targetFrom));
 		}
+
+		const position = target.kind === "figure"
+			? settings.figurePosition
+			: settings.tablePosition;
+		ranges.push(Decoration.widget({
+			block: true,
+			side: position === "above" ? -1 : 1,
+			widget: new QuartoCaptionWidget(target, settings),
+		}).range(position === "above" ? target.targetFrom : target.targetTo));
 	}
 
 	for (const reference of document.references) {
