@@ -12,13 +12,39 @@ export const CAPTION_ENGINE_METADATA = [
 		name: "Pandoc and pandoc-crossref",
 		description: "Captions, anchors, numbering, and cross-references for Pandoc syntax.",
 	},
+	{
+		id: "quarto",
+		name: "Quarto",
+		description: "Captions, numbering, and cross-references for Quarto syntax.",
+	},
 ] as const;
 
 export type CaptionEngineId = typeof CAPTION_ENGINE_METADATA[number]["id"];
+export type StandardMarkdownEngine = "none" | Exclude<CaptionEngineId, "wikiImage">;
 
 export interface CaptionsEngineSettings {
 	wikiImage: boolean;
+	standardMarkdown: StandardMarkdownEngine;
+	// Kept as a compatibility mirror for settings written by version 0.0.3.
 	pandocCrossref: boolean;
+}
+
+export const STANDARD_MARKDOWN_ENGINE_OPTIONS: ReadonlyArray<{
+	id: StandardMarkdownEngine;
+	name: string;
+}> = [
+	{ id: "none", name: "None" },
+	{ id: "pandocCrossref", name: "Pandoc and pandoc-crossref" },
+	{ id: "quarto", name: "Quarto" },
+];
+
+export function isCaptionEngineEnabled(
+	settings: CaptionsEngineSettings,
+	id: CaptionEngineId,
+): boolean {
+	return id === "wikiImage"
+		? settings.wikiImage
+		: settings.standardMarkdown === id;
 }
 
 export interface CaptionEngine {

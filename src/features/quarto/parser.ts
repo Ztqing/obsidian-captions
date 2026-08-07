@@ -1,16 +1,16 @@
-export type PandocTargetKind = "figure" | "table";
+export type QuartoTargetKind = "figure" | "table";
 
-export type PandocTargetIdentity =
+export type QuartoTargetIdentity =
 	| { mode: "caption" }
 	| { mode: "anchor"; id: string }
 	| { mode: "crossref"; id: string; number: number };
 
-export interface PandocCaptionTarget {
+export interface QuartoCaptionTarget {
 	key: string;
-	kind: PandocTargetKind;
+	kind: QuartoTargetKind;
 	caption: string;
 	imageSource: string | null;
-	identity: PandocTargetIdentity;
+	identity: QuartoTargetIdentity;
 	targetFrom: number;
 	targetTo: number;
 	targetStartLine: number;
@@ -22,20 +22,20 @@ export interface PandocCaptionTarget {
 	markerLine: number;
 }
 
-export type PandocCrossrefCaptionTarget = PandocCaptionTarget & {
-	identity: Extract<PandocTargetIdentity, { mode: "crossref" }>;
+export type QuartoCrossrefCaptionTarget = QuartoCaptionTarget & {
+	identity: Extract<QuartoTargetIdentity, { mode: "crossref" }>;
 };
 
-export interface PandocCrossrefReference {
+export interface QuartoCrossrefReference {
 	id: string;
 	from: number;
 	to: number;
 }
 
-export interface PandocCrossrefDocument {
-	targets: PandocCaptionTarget[];
-	references: PandocCrossrefReference[];
-	tableBlocks: PandocTableBlock[];
+export interface QuartoDocument {
+	targets: QuartoCaptionTarget[];
+	references: QuartoCrossrefReference[];
+	tableBlocks: QuartoTableBlock[];
 }
 
 interface SourceLine {
@@ -46,7 +46,7 @@ interface SourceLine {
 	excluded: boolean;
 }
 
-export interface PandocTableBlock {
+export interface QuartoTableBlock {
 	from: number;
 	to: number;
 	startLine: number;
@@ -72,13 +72,12 @@ interface ParsedTableCaption {
 const ATTRIBUTE = /\{([^{}]*)\}\s*$/u;
 const ATTRIBUTE_ID = /(?:^|\s)#([A-Za-z0-9][A-Za-z0-9_.:-]*)(?=\s|$)/u;
 const ATTRIBUTE_ITEM = /(?:^|\s)(?:#[A-Za-z0-9][A-Za-z0-9_.:-]*|\.[A-Za-z0-9][A-Za-z0-9_.:-]*|[A-Za-z_][A-Za-z0-9_.:-]*=(?:"[^"]*"|'[^']*'|[^\s]+))(?=\s|$)/gu;
-const FIGURE_CROSSREF_ID = /^fig:[A-Za-z0-9][A-Za-z0-9_.:-]*$/u;
-const TABLE_CROSSREF_ID = /^tbl:[A-Za-z0-9][A-Za-z0-9_.:-]*$/u;
-const REFERENCE = /\[@((?:fig|tbl):[A-Za-z0-9][A-Za-z0-9_.:-]*)\]/gu;
+const FIGURE_CROSSREF_ID = /^fig-[A-Za-z0-9](?:[A-Za-z0-9_.:-]*[A-Za-z0-9])?$/u;
+const TABLE_CROSSREF_ID = /^tbl-[A-Za-z0-9](?:[A-Za-z0-9_.:-]*[A-Za-z0-9])?$/u;
+const REFERENCE = /@((?:fig|tbl)-[A-Za-z0-9](?:[A-Za-z0-9_.:-]*[A-Za-z0-9])?)/gu;
+const REFERENCE_WORD_CHARACTER = /[A-Za-z0-9_]/u;
 
-export function parsePandocCrossrefDocument(
-	source: string,
-): PandocCrossrefDocument {
+export function parseQuartoDocument(source: string): QuartoDocument {
 	const lines = createSourceLines(source);
 	markExcludedLines(lines);
 
@@ -91,7 +90,7 @@ export function parsePandocCrossrefDocument(
 		const caption = parseTableCaption(line);
 		return caption === null ? [] : [caption];
 	});
-	const usedTableBlocks = new Set<PandocTableBlock>();
+	const usedTableBlocks = new Set<QuartoTableBlock>();
 	const tables = tableCaptions.flatMap((caption) => {
 		const tableBlock = findCaptionTable(caption.line.index, tableBlocks, lines);
 		if (tableBlock === null || usedTableBlocks.has(tableBlock)) {
@@ -131,14 +130,31 @@ export function parsePandocCrossrefDocument(
 	return { targets, references, tableBlocks };
 }
 
-export function isPandocCrossrefTarget(
-	target: PandocCaptionTarget,
-): target is PandocCrossrefCaptionTarget {
+export function isQuartoCrossrefTarget(
+	target: QuartoCaptionTarget,
+): target is QuartoCrossrefCaptionTarget {
 	return target.identity.mode === "crossref";
 }
 
-export function getPandocTargetId(target: PandocCaptionTarget): string | null {
+export function getQuartoTargetId(target: QuartoCaptionTarget): string | null {
 	return target.identity.mode === "caption" ? null : target.identity.id;
+}
+
+export function isQuartoReferenceBoundary(
+	source: string,
+	from: number,
+	to: number,
+): boolean {
+	const previous = source[from - 1];
+	const next = source[to];
+	return (previous === undefined
+		|| (!REFERENCE_WORD_CHARACTER.test(previous) && previous !== "@" && previous !== "\\"))
+		&& (next === undefined
+			|| (!REFERENCE_WORD_CHARACTER.test(next) && next !== "-" && next !== "@"));
+}
+
+export function createQuartoReferencePattern(): RegExp {
+	return new RegExp(REFERENCE.source, "gu");
 }
 
 function createSourceLines(source: string): SourceLine[] {
@@ -201,7 +217,7 @@ function markExcludedLines(lines: SourceLine[]): void {
 	}
 }
 
-function parseFigure(line: SourceLine): PandocCaptionTarget | null {
+function parseFigure(line: SourceLine): QuartoCaptionTarget | null {
 	if (line.excluded) {
 		return null;
 	}
@@ -310,8 +326,8 @@ function unescapeImageCaption(caption: string): string {
 	return caption.replace(/\\([[\]\\])/gu, "$1");
 }
 
-function findPipeTableBlocks(lines: SourceLine[]): PandocTableBlock[] {
-	const blocks: PandocTableBlock[] = [];
+function findPipeTableBlocks(lines: SourceLine[]): QuartoTableBlock[] {
+	const blocks: QuartoTableBlock[] = [];
 
 	for (let index = 0; index < lines.length - 1; index += 1) {
 		const header = lines[index];
@@ -373,7 +389,7 @@ function parseTableCaption(line: SourceLine): ParsedTableCaption | null {
 	const prefixAndCaption = (
 		attribute === null ? trimmed : trimmed.slice(0, attribute.from)
 	).trimEnd();
-	const captionMatch = /^(?::|Table:)\s*(.*)$/iu.exec(prefixAndCaption);
+	const captionMatch = /^:\s*(.*)$/u.exec(prefixAndCaption);
 	if (captionMatch === null) {
 		return null;
 	}
@@ -397,9 +413,9 @@ function parseTableCaption(line: SourceLine): ParsedTableCaption | null {
 
 function findCaptionTable(
 	captionLine: number,
-	blocks: PandocTableBlock[],
+	blocks: QuartoTableBlock[],
 	lines: SourceLine[],
-): PandocTableBlock | null {
+): QuartoTableBlock | null {
 	for (let index = blocks.length - 1; index >= 0; index -= 1) {
 		const block = blocks[index];
 		if (
@@ -426,9 +442,9 @@ function linesAreBlank(lines: SourceLine[], from: number, to: number): boolean {
 }
 
 function createIdentity(
-	kind: PandocTargetKind,
+	kind: QuartoTargetKind,
 	id: string | null,
-): PandocTargetIdentity {
+): QuartoTargetIdentity {
 	if (id === null) {
 		return { mode: "caption" };
 	}
@@ -441,12 +457,12 @@ function createIdentity(
 		: { mode: "anchor", id };
 }
 
-function assignNumbers(targets: PandocCaptionTarget[]): void {
+function assignNumbers(targets: QuartoCaptionTarget[]): void {
 	let figureNumber = 0;
 	let tableNumber = 0;
 
 	for (const target of targets) {
-		if (!isPandocCrossrefTarget(target)) {
+		if (!isQuartoCrossrefTarget(target)) {
 			continue;
 		}
 
@@ -469,8 +485,8 @@ function assignNumbers(targets: PandocCaptionTarget[]): void {
 function parseReferences(
 	lines: SourceLine[],
 	targetLines: Set<number>,
-): PandocCrossrefReference[] {
-	const references: PandocCrossrefReference[] = [];
+): QuartoCrossrefReference[] {
+	const references: QuartoCrossrefReference[] = [];
 
 	for (const line of lines) {
 		if (line.excluded || targetLines.has(line.index)) {
@@ -479,7 +495,15 @@ function parseReferences(
 
 		for (const match of line.text.matchAll(REFERENCE)) {
 			const id = match[1];
-			if (id === undefined || match.index === undefined) {
+			if (
+				id === undefined
+				|| match.index === undefined
+				|| !isQuartoReferenceBoundary(
+					line.text,
+					match.index,
+					match.index + match[0].length,
+				)
+			) {
 				continue;
 			}
 

@@ -6,6 +6,8 @@ import {
 	type CaptionEngine,
 	type CaptionEngineId,
 	CaptionEngineManager,
+	type CaptionsEngineSettings,
+	isCaptionEngineEnabled,
 } from "../src/engine-manager";
 
 class FakeEngine implements CaptionEngine {
@@ -34,35 +36,43 @@ class FakeEngine implements CaptionEngine {
 	}
 }
 
-void test("manages caption engines independently and supports re-enabling", () => {
-	const enabled = {
+void test("keeps Wiki independent while selecting one standard engine", () => {
+	const enabled: CaptionsEngineSettings = {
 		wikiImage: true,
+		standardMarkdown: "pandocCrossref",
 		pandocCrossref: true,
 	};
 	const wiki = new FakeEngine("wikiImage");
 	const pandoc = new FakeEngine("pandocCrossref");
+	const quarto = new FakeEngine("quarto");
 	const manager = new CaptionEngineManager(
-		[wiki, pandoc],
-		(id) => enabled[id],
+		[wiki, pandoc, quarto],
+		(id) => isCaptionEngineEnabled(enabled, id),
 	);
 
 	assert.equal(manager.createEditorExtensions().length, 2);
 	manager.refresh();
 	assert.equal(wiki.refreshCount, 1);
 	assert.equal(pandoc.refreshCount, 1);
+	assert.equal(quarto.disableCount, 1);
 
-	enabled.wikiImage = false;
-	assert.equal(manager.createEditorExtensions().length, 1);
-	manager.refresh();
-	assert.equal(wiki.disableCount, 1);
-	assert.equal(pandoc.refreshCount, 2);
-
-	enabled.wikiImage = true;
+	enabled.standardMarkdown = "quarto";
+	enabled.pandocCrossref = false;
+	assert.equal(manager.createEditorExtensions().length, 2);
 	manager.refresh();
 	assert.equal(wiki.refreshCount, 2);
-	assert.equal(pandoc.refreshCount, 3);
+	assert.equal(pandoc.disableCount, 1);
+	assert.equal(quarto.refreshCount, 1);
+
+	enabled.standardMarkdown = "none";
+	manager.refresh();
+	assert.equal(manager.createEditorExtensions().length, 1);
+	assert.equal(wiki.refreshCount, 3);
+	assert.equal(pandoc.disableCount, 2);
+	assert.equal(quarto.disableCount, 2);
 
 	manager.cleanup();
 	assert.equal(wiki.cleanupCount, 1);
 	assert.equal(pandoc.cleanupCount, 1);
+	assert.equal(quarto.cleanupCount, 1);
 });

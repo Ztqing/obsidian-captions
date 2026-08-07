@@ -10,6 +10,14 @@ import {
 	renderPandocCrossrefReadingSections,
 } from "../src/features/pandoc-crossref/reading-view";
 
+const CAPTION_SETTINGS = {
+	figureLabel: "Figure",
+	tableLabel: "Table",
+	alignment: "center",
+	style: "italic",
+	showFileNameAsCaption: false,
+} as const;
+
 void test("pairs a table and caption rendered in separate Obsidian sections", () => {
 	const source = [
 		"| Crop | Yield |",
@@ -40,7 +48,7 @@ void test("pairs a table and caption rendered in separate Obsidian sections", ()
 			{ root: referenceSection, lineStart: 6, lineEnd: 6 },
 		],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	const table = requireElement(document, "table");
@@ -48,6 +56,18 @@ void test("pairs a table and caption rendered in separate Obsidian sections", ()
 	assert.equal(
 		requireElement(document, "table > caption").textContent,
 		"Table 1: Garden peas",
+	);
+	assert.equal(
+		requireElement(document, "table > caption").classList.contains(
+			"captions-caption--center",
+		),
+		true,
+	);
+	assert.equal(
+		requireElement(document, "table > caption").classList.contains(
+			"captions-caption--italic",
+		),
+		true,
 	);
 	assert.equal(
 		requireElement(document, "#caption-section > p")
@@ -96,7 +116,7 @@ void test("maps a labeled table after an unlabeled table in the same section", (
 			{ root: captionSection, lineStart: 8, lineEnd: 8 },
 		],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	const tables = document.querySelectorAll("table");
@@ -131,7 +151,7 @@ void test("renders an unlabelled table caption across Obsidian sections", () => 
 			{ root: captionSection, lineStart: 4, lineEnd: 4 },
 		],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	const table = requireElement(document, "table");
@@ -179,7 +199,7 @@ void test("renders a native table ID without numbering or crossref replacement",
 			{ root: referenceSection, lineStart: 6, lineEnd: 6 },
 		],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	assert.equal(requireElement(document, "table").getAttribute("id"), "peas");
@@ -220,7 +240,7 @@ void test("renders native and crossref figures without shifting numbering", () =
 			{ root: referenceSection, lineStart: 6, lineEnd: 6 },
 		],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	const figures = figureSection.querySelectorAll("p");
@@ -267,7 +287,7 @@ void test("pairs figures with duplicate captions by source order", () => {
 	renderPandocCrossrefReadingSections(
 		[{ root: figureSection, lineStart: 0, lineEnd: 2 }],
 		model,
-		{ figureLabel: "Figure", tableLabel: "Table" },
+		CAPTION_SETTINGS,
 	);
 
 	const figures = figureSection.querySelectorAll("p");
@@ -281,6 +301,54 @@ void test("pairs figures with duplicate captions by source order", () => {
 		figures[1]?.querySelectorAll(".captions-pandoc-figure-caption").length,
 		1,
 	);
+});
+
+void test("uses file-name fallback and refreshes Pandoc figure appearance", () => {
+	const source = [
+		"![](assets/Swiss%20Alps.png?cache=1)",
+		"",
+		"![](numbered.png){#fig:empty}",
+	].join("\n");
+	const model = parsePandocCrossrefDocument(source);
+	const { document } = parseHTML([
+		'<div id="figure-section">',
+		'<p><img src="app://obsidian.md/Swiss%20Alps.png" alt="Swiss Alps.png"></p>',
+		'<p><img src="app://obsidian.md/numbered.png" alt="numbered.png">',
+		"{#fig:empty}</p>",
+		"</div>",
+	].join(""));
+	const root = requireElement(document, "#figure-section");
+
+	renderPandocCrossrefReadingSections(
+		[{ root, lineStart: 0, lineEnd: 2 }],
+		model,
+		CAPTION_SETTINGS,
+	);
+	let captions = root.querySelectorAll(".captions-pandoc-figure-caption");
+	assert.equal(captions.length, 1);
+	assert.equal(captions[0]?.textContent, "Figure 1");
+
+	renderPandocCrossrefReadingSections(
+		[{ root, lineStart: 0, lineEnd: 2 }],
+		model,
+		{
+			...CAPTION_SETTINGS,
+			figureLabel: "Illustration",
+			alignment: "right",
+			style: "normal",
+			showFileNameAsCaption: true,
+		},
+	);
+	captions = root.querySelectorAll(".captions-pandoc-figure-caption");
+	assert.deepEqual(Array.from(captions).map((caption) => caption.textContent), [
+		"Swiss Alps.png",
+		"Illustration 1: numbered.png",
+	]);
+	for (const caption of Array.from(captions)) {
+		assert.equal(caption.classList.contains("captions-caption--right"), true);
+		assert.equal(caption.classList.contains("captions-caption--normal"), true);
+	}
+	assert.equal(captions.length, 2);
 });
 
 void test("disables and re-enables Pandoc Reading view state", async () => {
@@ -303,7 +371,7 @@ void test("disables and re-enables Pandoc Reading view state", async () => {
 	const captionSection = requireElement(document, "#caption-section");
 	const referenceSection = requireElement(document, "#reference-section");
 	const coordinator = new PandocCrossrefReadingCoordinator(
-		() => ({ figureLabel: "Figure", tableLabel: "Table" }),
+		() => CAPTION_SETTINGS,
 	);
 	let loadCount = 0;
 	const loadDocument = (): Promise<typeof model> => {

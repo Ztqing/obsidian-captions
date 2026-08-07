@@ -2,6 +2,7 @@ import {
 	resolveWikiImageCaption,
 	type WikiImageCaptionSettings,
 } from "./caption";
+import { getCaptionAppearanceClasses } from "../../caption-settings";
 
 const INTERNAL_EMBED_SELECTOR = ".internal-embed";
 const WIKI_IMAGE_SELECTOR = `${INTERNAL_EMBED_SELECTOR}.image-embed`;
@@ -96,8 +97,7 @@ function renderWikiImageCaption(
 		?? embed.ownerDocument.createElement("div");
 	const className = [
 		CAPTION_CLASS,
-		`${CAPTION_CLASS}--${settings.alignment}`,
-		`${CAPTION_CLASS}--${settings.style}`,
+		...getCaptionAppearanceClasses(settings),
 	].join(" ");
 	if (caption.className !== className) {
 		caption.className = className;

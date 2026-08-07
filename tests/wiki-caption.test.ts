@@ -183,6 +183,14 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 	const renderedCaption = document.querySelector(".captions-wiki-caption");
 	assert.equal(renderedCaption?.textContent, caption);
 	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--center"),
+		true,
+	);
+	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--italic"),
+		true,
+	);
+	assert.equal(
 		document.querySelector(".internal-embed")?.classList.contains(
 			"captions-wiki-has-caption",
 		),
@@ -191,10 +199,22 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 
 	renderWikiImageCaptions(root, {
 		showFileNameAsCaption: false,
-		alignment: "center",
-		style: "italic",
+		alignment: "right",
+		style: "normal",
 	});
 	assert.equal(document.querySelectorAll(".captions-wiki-caption").length, 1);
+	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--right"),
+		true,
+	);
+	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--normal"),
+		true,
+	);
+	assert.equal(
+		renderedCaption?.classList.contains("captions-caption--center"),
+		false,
+	);
 });
 
 void test("recognizes a Wiki image before Obsidian finishes its DOM", () => {

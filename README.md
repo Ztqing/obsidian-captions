@@ -2,14 +2,17 @@
 
 An Obsidian plugin for previewing image and table captions and cross-references.
 
-## 0.0.3
+## 0.0.5
 
-This release contains two independently managed engines:
+This release contains three syntax-specific engines:
 
 - Obsidian Wiki image captions
 - Pandoc captions and pandoc-crossref previews for standard images, pipe tables, and references
+- Quarto captions and cross-reference previews for standard images, pipe tables, and references
 
-Both engines are enabled by default. Open **Settings > Captions > Engines** to enable or disable either engine without restarting Obsidian. Disabling an engine immediately removes its Reading view output and Live Preview decorations without changing the Markdown source. Existing `0.0.2` settings are migrated with both engines enabled.
+Open **Settings > Captions** to configure them. Wiki image captions have an independent toggle. Standard Markdown images and tables use one mutually exclusive engine: `None`, `Pandoc and pandoc-crossref`, or `Quarto`. Pandoc remains the default for compatibility. Switching engines immediately removes the previous engine's Reading view output and Live Preview decorations without changing the Markdown source or restarting Obsidian.
+
+The **Caption defaults** section applies one set of figure and table labels, alignment, font style, and file-name fallback behavior across the enabled engines. Figure and table labels are shared by Pandoc and Quarto captions and references. Alignment and font style apply to all captions created by this plugin in Reading view and Live Preview. Existing settings from `0.0.2` through `0.0.4` are validated and migrated to this shared configuration.
 
 ### Wiki images
 
@@ -21,7 +24,7 @@ Wiki images continue to use their alias as the caption. A final numeric or `widt
 ![[landscape.png|Swiss Alps|300x200]]
 ```
 
-A size by itself does not create a caption:
+A size by itself does not create a caption unless file-name fallback is enabled:
 
 ```markdown
 ![[landscape.png|400]]
@@ -41,7 +44,7 @@ An image must occupy its own line to use its alt text as a Pandoc caption. An ID
 See [@fig:architecture].
 ```
 
-The first form displays a caption only. A native ID such as `#architecture` also creates an anchor without numbering. Only a matching `fig:` ID enables automatic numbering and pandoc-crossref references.
+The first form displays a caption only. A native ID such as `#architecture` also creates an anchor without numbering. Only a matching `fig:` ID enables automatic numbering and pandoc-crossref references. When file-name fallback is enabled, a standalone image with empty alt text uses its decoded file name; explicit alt text always takes precedence.
 
 ### Pandoc tables
 
@@ -68,15 +71,45 @@ Use a `tbl:` ID to enable numbering and references:
 See [@tbl:results].
 ```
 
-Unlabelled captions and native IDs are not numbered and do not consume a counter. Only matching `fig:` and `tbl:` targets are numbered; figures and tables use independent counters starting from 1 in each note. The settings tab can customize the `Figure` and `Table` labels.
+Unlabelled captions and native IDs are not numbered and do not consume a counter. Only matching `fig:` and `tbl:` targets are numbered; figures and tables use independent counters starting from 1 in each note. The shared settings can customize the `Figure` and `Table` labels for both standard Markdown engines.
 
-Native anchors can be linked with normal Markdown links such as `[details](#results)`. Version 0.0.3 does not interpret Quarto `fig-` or `tbl-` identifiers as crossrefs. Cross-note references, chapter numbering, subfigures, and complex citation groups are not yet supported.
+Native anchors can be linked with normal Markdown links such as `[details](#results)`. The Pandoc engine does not interpret Quarto `fig-` or `tbl-` identifiers as crossrefs.
 
-Wiki image behavior is based on [bcs1037/wk-image-caption](https://github.com/bcs1037/wk-image-caption). Pandoc-crossref syntax follows [pandoc-crossref](https://lierdakil.github.io/pandoc-crossref/).
+### Quarto figures
 
-## Roadmap
+Select the Quarto engine to use `fig-` identifiers and bare Quarto references:
 
-- `0.0.4`: Quarto engine
+```markdown
+![Architecture](assets/architecture.png)
+
+![Architecture](assets/architecture.png){#architecture}
+
+![Architecture](assets/architecture.png){#fig-architecture}
+
+See @fig-architecture.
+```
+
+As with the Pandoc engine, the first form displays an unnumbered caption, a native ID creates an unnumbered anchor, and only a matching `fig-` ID participates in numbering and cross-references.
+
+### Quarto tables
+
+Quarto pipe table captions can appear before or after the table:
+
+```markdown
+| Model | Accuracy |
+| --- | ---: |
+| A | 92% |
+
+: Model results {#tbl-results}
+
+See @tbl-results.
+```
+
+Quarto figures and tables use independent counters starting from 1 in each note and use the same customizable labels as Pandoc. The Quarto engine does not interpret Pandoc `fig:` or `tbl:` identifiers as crossrefs.
+
+Version `0.0.5` supports standalone standard Markdown images, pipe tables, direct bare Quarto references, and shared caption defaults. Cross-note references, chapter numbering, subfigures, executable-cell labels, and complex reference groups are not yet supported.
+
+Wiki image behavior is based on [bcs1037/wk-image-caption](https://github.com/bcs1037/wk-image-caption). Pandoc-crossref syntax follows [pandoc-crossref](https://lierdakil.github.io/pandoc-crossref/). Quarto cross-reference syntax follows the [Quarto cross-references guide](https://quarto.org/docs/authoring/cross-references.html).
 
 ## Development
 

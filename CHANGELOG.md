@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.5
+
+- Consolidate figure labels, table labels, alignment, font style, and file-name fallback into shared caption defaults.
+- Apply shared labels and caption appearance consistently across Wiki, Pandoc, and Quarto in Reading view and Live Preview.
+- Extend decoded file-name fallback to standalone Pandoc and Quarto images without explicit alt text.
+- Preserve numbered figure labels when fallback is disabled and leave ordinary empty-alt images unchanged.
+- Migrate validated `0.0.2` through `0.0.4` settings into the shared `captions` configuration.
+
+## 0.0.4
+
+- Add an independent Quarto engine for standard Markdown figures, pipe tables, and cross-references.
+- Support Quarto `fig-` and `tbl-` identifiers with bare `@fig-...` and `@tbl-...` references in Reading view and Live Preview.
+- Replace independent standard-engine toggles with a mutually exclusive `None`, `Pandoc`, or `Quarto` selection while keeping Wiki image captions independently configurable.
+- Cleanly remove the previous standard engine's captions, references, anchors, decorations, observers, and cached render state when switching engines.
+- Migrate `0.0.3` settings to the new engine selection without changing the active Pandoc or Wiki behavior.
+
 ## 0.0.3
 
 - Add independent enable/disable controls for the Wiki image and Pandoc engines.

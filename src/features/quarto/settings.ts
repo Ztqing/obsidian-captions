@@ -3,11 +3,11 @@ import {
 	type CaptionSettings,
 } from "../../caption-settings";
 
-export type PandocCrossrefSettings = CaptionSettings;
+export type QuartoSettings = CaptionSettings;
 
-export function getPandocTargetLabel(
+export function getQuartoTargetLabel(
 	kind: "figure" | "table",
-	settings: PandocCrossrefSettings,
+	settings: QuartoSettings,
 ): string {
 	return getCaptionLabel(kind, settings);
 }

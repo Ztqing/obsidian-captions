@@ -205,18 +205,24 @@ void test("requires a figure to occupy its own line", () => {
 	assert.deepEqual(document.targets, []);
 });
 
-void test("ignores empty unlabelled captions but preserves an explicit anchor", () => {
+void test("retains image sources for empty captions and explicit anchors", () => {
 	const document = parsePandocCrossrefDocument([
-		"![](empty.png)",
+		"![](assets/empty%20image.png?cache=1)",
 		"",
 		"![](anchored.png){#empty-figure}",
 	].join("\n"));
 
-	assert.equal(document.targets.length, 1);
-	assert.deepEqual(document.targets[0]?.identity, {
+	assert.equal(document.targets.length, 2);
+	assert.deepEqual(document.targets[0]?.identity, { mode: "caption" });
+	assert.equal(
+		document.targets[0]?.imageSource,
+		"assets/empty%20image.png?cache=1",
+	);
+	assert.deepEqual(document.targets[1]?.identity, {
 		mode: "anchor",
 		id: "empty-figure",
 	});
+	assert.equal(document.targets[1]?.imageSource, "anchored.png");
 });
 
 function summarizeTarget(target: PandocCaptionTarget): object {

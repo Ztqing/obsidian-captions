@@ -1,11 +1,18 @@
-export type WikiCaptionAlignment = "left" | "center" | "right";
-export type WikiCaptionStyle = "italic" | "normal";
+import {
+	getCleanFileName,
+	resolveImageCaption,
+	type CaptionAlignment,
+	type CaptionSettings,
+	type CaptionStyle,
+} from "../../caption-settings";
 
-export interface WikiImageCaptionSettings {
-	showFileNameAsCaption: boolean;
-	alignment: WikiCaptionAlignment;
-	style: WikiCaptionStyle;
-}
+export type WikiCaptionAlignment = CaptionAlignment;
+export type WikiCaptionStyle = CaptionStyle;
+
+export type WikiImageCaptionSettings = Pick<
+	CaptionSettings,
+	"alignment" | "showFileNameAsCaption" | "style"
+>;
 
 export interface WikiImageCaptionCandidates {
 	embedAlt: string | null;
@@ -15,8 +22,7 @@ export interface WikiImageCaptionCandidates {
 }
 
 const WIKI_IMAGE_SIZE = /^\d+(?:x\d+)?$/;
-const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
-
+const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/iu;
 export function parseWikiImageCaption(
 	altText: string | null,
 	settings: Pick<WikiImageCaptionSettings, "showFileNameAsCaption">,
@@ -27,9 +33,7 @@ export function parseWikiImageCaption(
 		return caption;
 	}
 
-	return settings.showFileNameAsCaption
-		? getCleanFileName(sourceText)
-		: null;
+	return resolveImageCaption(null, [sourceText], settings.showFileNameAsCaption);
 }
 
 export function resolveWikiImageCaption(
@@ -45,12 +49,11 @@ export function resolveWikiImageCaption(
 		}
 	}
 
-	if (!settings.showFileNameAsCaption) {
-		return null;
-	}
-
-	return getCleanFileName(candidates.embedSource)
-		?? getCleanFileName(candidates.imageSource);
+	return resolveImageCaption(
+		null,
+		[candidates.embedSource, candidates.imageSource],
+		settings.showFileNameAsCaption,
+	);
 }
 
 function parseExplicitWikiImageCaption(
@@ -88,29 +91,9 @@ function parseExplicitWikiImageCaption(
 	if (sourceTexts.some((sourceText) => getCleanFileName(sourceText) === caption)) {
 		return null;
 	}
-
 	if (IMAGE_FILE_EXTENSION.test(caption)) {
 		return null;
 	}
 
-	return caption;
-}
-
-function getCleanFileName(sourceText: string | null): string | null {
-	if (sourceText === null || sourceText.length === 0) {
-		return null;
-	}
-
-	const pathWithoutQuery = sourceText.split(/[?#]/u, 1)[0];
-	const pathParts = pathWithoutQuery?.split("/") ?? [];
-	const encodedFileName = pathParts[pathParts.length - 1];
-	if (encodedFileName === undefined || encodedFileName.length === 0) {
-		return null;
-	}
-
-	try {
-		return decodeURIComponent(encodedFileName);
-	} catch {
-		return encodedFileName;
-	}
+	return resolveImageCaption(caption, sourceTexts, false);
 }

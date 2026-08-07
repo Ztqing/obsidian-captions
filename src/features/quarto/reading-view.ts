@@ -1,44 +1,52 @@
 import type {
-	PandocCaptionTarget,
-	PandocCrossrefCaptionTarget,
-	PandocCrossrefDocument,
+	QuartoCaptionTarget,
+	QuartoCrossrefCaptionTarget,
+	QuartoDocument,
 } from "./parser";
 import {
 	getCaptionAppearanceClasses,
 	resolveImageCaption,
 } from "../../caption-settings";
 import {
-	getPandocTargetId,
-	isPandocCrossrefTarget,
+	createQuartoReferencePattern,
+	getQuartoTargetId,
+	isQuartoCrossrefTarget,
+	isQuartoReferenceBoundary,
 } from "./parser";
 import {
-	getPandocTargetLabel,
-	type PandocCrossrefSettings,
+	getQuartoTargetLabel,
+	type QuartoSettings,
 } from "./settings";
 
-export interface PandocCrossrefReadingSection {
+export interface QuartoReadingSection {
 	root: HTMLElement;
 	lineStart: number;
 	lineEnd: number;
 }
 
-const FIGURE_CLASS = "captions-pandoc-figure";
-const FIGURE_CAPTION_CLASS = "captions-pandoc-figure-caption";
-const TABLE_CLASS = "captions-pandoc-table";
-const TABLE_CAPTION_CLASS = "captions-pandoc-table-caption";
-const CAPTION_LABEL_CLASS = "captions-pandoc-label";
-const SOURCE_MARKER_CLASS = "captions-pandoc-source-marker";
-const SOURCE_CAPTION_CLASS = "captions-pandoc-source-caption";
-const REFERENCE_CLASS = "captions-pandoc-reference";
-const REFERENCE_SOURCE_CLASS = "captions-pandoc-reference-source";
-const MANAGED_TARGET_ATTRIBUTE = "data-captions-pandoc-managed-id";
-const PREVIOUS_ID_ATTRIBUTE = "data-captions-pandoc-previous-id";
-const REFERENCE_PATTERN = /\[@((?:fig|tbl):[A-Za-z0-9][A-Za-z0-9_.:-]*)\]/gu;
+const FIGURE_CLASS = "captions-quarto-figure";
+const FIGURE_CAPTION_CLASS = "captions-quarto-figure-caption";
+const TABLE_CLASS = "captions-quarto-table";
+const TABLE_CAPTION_CLASS = "captions-quarto-table-caption";
+const CAPTION_LABEL_CLASS = "captions-quarto-label";
+const SOURCE_MARKER_CLASS = "captions-quarto-source-marker";
+const SOURCE_CAPTION_CLASS = "captions-quarto-source-caption";
+const REFERENCE_CLASS = "captions-quarto-reference";
+const REFERENCE_SOURCE_CLASS = "captions-quarto-reference-source";
+const MANAGED_TARGET_ATTRIBUTE = "data-captions-quarto-managed-id";
+const PREVIOUS_ID_ATTRIBUTE = "data-captions-quarto-previous-id";
 
-export function renderPandocCrossrefReadingSections(
-	sections: PandocCrossrefReadingSection[],
-	document: PandocCrossrefDocument,
-	settings: PandocCrossrefSettings,
+interface TextReferenceMatch {
+	from: number;
+	to: number;
+	source: string;
+	id: string;
+}
+
+export function renderQuartoReadingSections(
+	sections: QuartoReadingSection[],
+	document: QuartoDocument,
+	settings: QuartoSettings,
 ): void {
 	const targetsById = createCrossrefTargetsById(document.targets);
 
@@ -50,21 +58,9 @@ export function renderPandocCrossrefReadingSections(
 		}
 
 		if (target.kind === "figure") {
-			renderFigure(
-				targetSection,
-				markerSection,
-				document,
-				target,
-				settings,
-			);
+			renderFigure(targetSection, markerSection, document, target, settings);
 		} else {
-			renderTable(
-				targetSection,
-				markerSection,
-				document,
-				target,
-				settings,
-			);
+			renderTable(targetSection, markerSection, document, target, settings);
 		}
 	}
 
@@ -73,85 +69,52 @@ export function renderPandocCrossrefReadingSections(
 	}
 }
 
-export function refreshPandocCrossrefLabels(
-	root: HTMLElement,
-	settings: PandocCrossrefSettings,
-): void {
-	const labels = collectElements<HTMLElement>(root, `.${CAPTION_LABEL_CLASS}`);
-	for (const label of labels) {
-		const kind = label.dataset.captionKind;
-		const number = label.dataset.captionNumber;
-		if ((kind === "figure" || kind === "table") && number !== undefined) {
-			label.textContent = `${getPandocTargetLabel(kind, settings)} ${number}`;
-		}
-	}
-
-	const references = collectElements<HTMLAnchorElement>(
-		root,
-		`.${REFERENCE_CLASS} > a[data-caption-kind][data-caption-number]`,
-	);
-	for (const reference of references) {
-		const kind = reference.dataset.captionKind;
-		const number = reference.dataset.captionNumber;
-		if ((kind === "figure" || kind === "table") && number !== undefined) {
-			reference.textContent = `${getPandocTargetLabel(kind, settings)} ${number}`;
-		}
-	}
-}
-
-export function cleanupPandocCrossrefReadingView(root: HTMLElement): void {
-	const referenceWrappers = collectElements<HTMLElement>(root, `.${REFERENCE_CLASS}`);
-	for (const wrapper of referenceWrappers) {
+export function cleanupQuartoReadingView(root: HTMLElement): void {
+	for (const wrapper of collectElements<HTMLElement>(root, `.${REFERENCE_CLASS}`)) {
 		const source = wrapper.querySelector<HTMLElement>(`.${REFERENCE_SOURCE_CLASS}`);
 		wrapper.replaceWith(wrapper.ownerDocument.createTextNode(source?.textContent ?? ""));
 	}
 
-	const sourceMarkers = collectElements<HTMLElement>(root, `.${SOURCE_MARKER_CLASS}`);
-	for (const marker of sourceMarkers) {
+	for (const marker of collectElements<HTMLElement>(root, `.${SOURCE_MARKER_CLASS}`)) {
 		marker.replaceWith(marker.ownerDocument.createTextNode(marker.textContent ?? ""));
 	}
 
-	const sourceCaptions = collectElements<HTMLElement>(root, `.${SOURCE_CAPTION_CLASS}`);
-	for (const caption of sourceCaptions) {
+	for (const caption of collectElements<HTMLElement>(root, `.${SOURCE_CAPTION_CLASS}`)) {
 		caption.classList.remove(SOURCE_CAPTION_CLASS);
 		delete caption.dataset.captionKey;
-		delete caption.dataset.captionId;
 	}
 
-	const captions = collectElements<HTMLElement>(
+	for (const caption of collectElements<HTMLElement>(
 		root,
 		`.${FIGURE_CAPTION_CLASS}, .${TABLE_CAPTION_CLASS}`,
-	);
-	for (const caption of captions) {
+	)) {
 		caption.remove();
 	}
 
-	const managedTargets = collectElements<HTMLElement>(
+	for (const target of collectElements<HTMLElement>(
 		root,
 		`[${MANAGED_TARGET_ATTRIBUTE}]`,
-	);
-	for (const target of managedTargets) {
+	)) {
 		restoreTargetId(target);
 	}
 
-	const targetBlocks = collectElements<HTMLElement>(
+	for (const target of collectElements<HTMLElement>(
 		root,
 		`.${FIGURE_CLASS}, .${TABLE_CLASS}`,
-	);
-	for (const target of targetBlocks) {
+	)) {
 		target.classList.remove(FIGURE_CLASS, TABLE_CLASS);
 	}
 }
 
 function renderFigure(
-	targetSection: PandocCrossrefReadingSection,
-	markerSection: PandocCrossrefReadingSection | null,
-	document: PandocCrossrefDocument,
-	target: PandocCaptionTarget,
-	settings: PandocCrossrefSettings,
+	targetSection: QuartoReadingSection,
+	markerSection: QuartoReadingSection | null,
+	document: QuartoDocument,
+	target: QuartoCaptionTarget,
+	settings: QuartoSettings,
 ): void {
 	const markerRoot = markerSection?.root ?? targetSection.root;
-	const existingMarker = findSourceElementByKey(
+	const existingMarker = findElementByKey(
 		markerRoot,
 		SOURCE_MARKER_CLASS,
 		target.key,
@@ -180,18 +143,18 @@ function renderFigure(
 		return;
 	}
 
-	const id = getPandocTargetId(target);
+	const id = getQuartoTargetId(target);
 	if (id !== null) {
 		manageTargetId(block, id);
 	}
 
-	let caption = findCaptionByKey(block, FIGURE_CAPTION_CLASS, target.key);
+	let caption = findElementByKey(block, FIGURE_CAPTION_CLASS, target.key);
 	const captionText = resolveImageCaption(
 		target.caption,
 		[target.imageSource, image.getAttribute("src")],
 		settings.showFileNameAsCaption,
 	);
-	if (captionText === null && !isPandocCrossrefTarget(target)) {
+	if (captionText === null && !isQuartoCrossrefTarget(target)) {
 		caption?.remove();
 		block.classList.remove(FIGURE_CLASS);
 		return;
@@ -217,11 +180,11 @@ function renderFigure(
 }
 
 function renderTable(
-	targetSection: PandocCrossrefReadingSection,
-	markerSection: PandocCrossrefReadingSection | null,
-	document: PandocCrossrefDocument,
-	target: PandocCaptionTarget,
-	settings: PandocCrossrefSettings,
+	targetSection: QuartoReadingSection,
+	markerSection: QuartoReadingSection | null,
+	document: QuartoDocument,
+	target: QuartoCaptionTarget,
+	settings: QuartoSettings,
 ): void {
 	const table = findTableForTarget(targetSection, document, target);
 	if (table === null) {
@@ -231,7 +194,7 @@ function renderTable(
 	const markerRoot = markerSection?.root;
 	const existingCaptionBlock = markerRoot === undefined
 		? null
-		: findSourceElementByKey(markerRoot, SOURCE_CAPTION_CLASS, target.key);
+		: findElementByKey(markerRoot, SOURCE_CAPTION_CLASS, target.key);
 	const sourceNode = markerRoot === undefined
 		|| existingCaptionBlock !== null
 		|| target.attributeText === null
@@ -241,8 +204,7 @@ function renderTable(
 		?? sourceNode?.parentElement?.closest("p")
 		?? (markerRoot === undefined || target.attributeText !== null
 			? null
-			: findRenderedTableCaptionBlock(markerRoot))
-		?? null;
+			: findRenderedTableCaptionBlock(markerRoot));
 	const renderedCaption = captionBlock === null
 		? target.caption
 		: extractRenderedTableCaption(
@@ -256,7 +218,7 @@ function renderTable(
 		captionBlock.dataset.captionKey = target.key;
 	}
 
-	const id = getPandocTargetId(target);
+	const id = getQuartoTargetId(target);
 	if (id !== null) {
 		manageTargetId(table, id);
 	}
@@ -276,10 +238,116 @@ function renderTable(
 	setCaptionContent(caption, target, renderedCaption, settings);
 }
 
+function renderReferences(
+	root: HTMLElement,
+	targetsById: Map<string, QuartoCrossrefCaptionTarget>,
+	settings: QuartoSettings,
+): void {
+	for (const textNode of collectTextNodes(root)) {
+		if (shouldSkipTextNode(textNode)) {
+			continue;
+		}
+
+		const matches = findTextReferences(textNode.data);
+		if (matches.length === 0) {
+			continue;
+		}
+
+		const fragment = root.ownerDocument.createDocumentFragment();
+		let previousEnd = 0;
+		for (const match of matches) {
+			const target = targetsById.get(match.id);
+			fragment.append(textNode.data.slice(previousEnd, match.from));
+			fragment.append(target === undefined
+				? match.source
+				: createReferenceElement(
+					root.ownerDocument,
+					match.source,
+					target,
+					settings,
+				));
+			previousEnd = match.to;
+		}
+		fragment.append(textNode.data.slice(previousEnd));
+		textNode.replaceWith(fragment);
+	}
+}
+
+function findTextReferences(source: string): TextReferenceMatch[] {
+	const references: TextReferenceMatch[] = [];
+	const pattern = createQuartoReferencePattern();
+	let match = pattern.exec(source);
+	while (match !== null) {
+		const id = match[1];
+		if (
+			id !== undefined
+			&& isQuartoReferenceBoundary(
+				source,
+				match.index,
+				match.index + match[0].length,
+			)
+		) {
+			references.push({
+				from: match.index,
+				to: match.index + match[0].length,
+				source: match[0],
+				id,
+			});
+		}
+		match = pattern.exec(source);
+	}
+	return references;
+}
+
+function createReferenceElement(
+	document: Document,
+	source: string,
+	target: QuartoCrossrefCaptionTarget,
+	settings: QuartoSettings,
+): HTMLElement {
+	const wrapper = document.createElement("span");
+	wrapper.className = REFERENCE_CLASS;
+
+	const sourceElement = document.createElement("span");
+	sourceElement.className = REFERENCE_SOURCE_CLASS;
+	sourceElement.textContent = source;
+	wrapper.appendChild(sourceElement);
+
+	const anchor = document.createElement("a");
+	anchor.dataset.captionKind = target.kind;
+	anchor.dataset.captionNumber = String(target.identity.number);
+	anchor.setAttribute("href", `#${target.identity.id}`);
+	anchor.textContent = `${getQuartoTargetLabel(target.kind, settings)} ${target.identity.number}`;
+	wrapper.appendChild(anchor);
+	return wrapper;
+}
+
+function setCaptionContent(
+	caption: HTMLElement,
+	target: QuartoCaptionTarget,
+	captionText: string,
+	settings: QuartoSettings,
+): void {
+	caption.replaceChildren();
+	if (isQuartoCrossrefTarget(target)) {
+		const label = caption.ownerDocument.createElement("span");
+		label.className = CAPTION_LABEL_CLASS;
+		label.dataset.captionKind = target.kind;
+		label.dataset.captionNumber = String(target.identity.number);
+		label.textContent = `${getQuartoTargetLabel(target.kind, settings)} ${target.identity.number}`;
+		caption.appendChild(label);
+		if (captionText.length > 0) {
+			caption.append(": ", captionText);
+		}
+	} else {
+		caption.textContent = captionText;
+	}
+}
+
 function findFigureImageForTarget(
-	section: PandocCrossrefReadingSection,
-	document: PandocCrossrefDocument,
-	target: PandocCaptionTarget,
+	section: QuartoReadingSection,
+	document: QuartoDocument,
+	target: QuartoCaptionTarget,
 ): HTMLImageElement | undefined {
 	const images = collectStandardImages(section.root);
 	const targets = document.targets.filter((candidate) =>
@@ -298,126 +366,24 @@ function findFigureImageForTarget(
 }
 
 function findTableForTarget(
-	section: PandocCrossrefReadingSection,
-	document: PandocCrossrefDocument,
-	target: PandocCaptionTarget,
+	section: QuartoReadingSection,
+	document: QuartoDocument,
+	target: QuartoCaptionTarget,
 ): HTMLTableElement | null {
-	const targets = document.targets.filter((candidate) =>
-		candidate.kind === "table"
-		&& candidate.targetStartLine === target.targetStartLine);
-	if (targets.length === 0) {
-		return null;
-	}
-
 	const tableBlocks = document.tableBlocks.filter((block) =>
 		sectionContainsLine(section, block.startLine));
 	const targetIndex = tableBlocks.findIndex((block) =>
 		block.startLine === target.targetStartLine);
-	if (targetIndex === -1) {
-		return null;
-	}
-
-	return collectTables(section.root)[targetIndex] ?? null;
-}
-
-function renderReferences(
-	root: HTMLElement,
-	targetsById: Map<string, PandocCrossrefCaptionTarget>,
-	settings: PandocCrossrefSettings,
-): void {
-	for (const textNode of collectTextNodes(root)) {
-		if (shouldSkipTextNode(textNode)) {
-			continue;
-		}
-
-		const source = textNode.data;
-		const pattern = new RegExp(REFERENCE_PATTERN.source, "gu");
-		let match = pattern.exec(source);
-		if (match === null) {
-			continue;
-		}
-
-		const fragment = root.ownerDocument.createDocumentFragment();
-		let previousEnd = 0;
-		while (match !== null) {
-			const id = match[1];
-			const target = id === undefined ? undefined : targetsById.get(id);
-			fragment.append(source.slice(previousEnd, match.index));
-
-			if (target === undefined) {
-				fragment.append(match[0]);
-			} else {
-				fragment.append(createReferenceElement(
-					root.ownerDocument,
-					match[0],
-					target,
-					settings,
-				));
-			}
-
-			previousEnd = match.index + match[0].length;
-			match = pattern.exec(source);
-		}
-
-		fragment.append(source.slice(previousEnd));
-		textNode.replaceWith(fragment);
-	}
-}
-
-function createReferenceElement(
-	document: Document,
-	source: string,
-	target: PandocCrossrefCaptionTarget,
-	settings: PandocCrossrefSettings,
-): HTMLElement {
-	const wrapper = document.createElement("span");
-	wrapper.className = REFERENCE_CLASS;
-
-	const sourceElement = document.createElement("span");
-	sourceElement.className = REFERENCE_SOURCE_CLASS;
-	sourceElement.textContent = source;
-	wrapper.appendChild(sourceElement);
-
-	const anchor = document.createElement("a");
-	anchor.dataset.captionKind = target.kind;
-	anchor.dataset.captionNumber = String(target.identity.number);
-	anchor.setAttribute("href", `#${target.identity.id}`);
-	anchor.textContent = `${getPandocTargetLabel(target.kind, settings)} ${target.identity.number}`;
-	wrapper.appendChild(anchor);
-	return wrapper;
-}
-
-function setCaptionContent(
-	caption: HTMLElement,
-	target: PandocCaptionTarget,
-	captionText: string,
-	settings: PandocCrossrefSettings,
-): void {
-	while (caption.firstChild !== null) {
-		caption.removeChild(caption.firstChild);
-	}
-
-	if (isPandocCrossrefTarget(target)) {
-		const label = caption.ownerDocument.createElement("span");
-		label.className = CAPTION_LABEL_CLASS;
-		label.dataset.captionKind = target.kind;
-		label.dataset.captionNumber = String(target.identity.number);
-		label.textContent = `${getPandocTargetLabel(target.kind, settings)} ${target.identity.number}`;
-		caption.appendChild(label);
-
-		if (captionText.length > 0) {
-			caption.append(": ", captionText);
-		}
-	} else {
-		caption.textContent = captionText;
-	}
+	return targetIndex === -1
+		? null
+		: collectElements<HTMLTableElement>(section.root, "table")[targetIndex] ?? null;
 }
 
 function findSectionForLine(
-	sections: PandocCrossrefReadingSection[],
+	sections: QuartoReadingSection[],
 	line: number,
-): PandocCrossrefReadingSection | null {
-	let bestMatch: PandocCrossrefReadingSection | null = null;
+): QuartoReadingSection | null {
+	let bestMatch: QuartoReadingSection | null = null;
 	for (const section of sections) {
 		if (
 			sectionContainsLine(section, line)
@@ -429,16 +395,13 @@ function findSectionForLine(
 	return bestMatch;
 }
 
-function sectionContainsLine(
-	section: PandocCrossrefReadingSection,
-	line: number,
-): boolean {
+function sectionContainsLine(section: QuartoReadingSection, line: number): boolean {
 	return section.lineStart <= line && line <= section.lineEnd;
 }
 
 function collectStandardImages(root: HTMLElement): HTMLImageElement[] {
-	const images = collectElements<HTMLImageElement>(root, "img");
-	return images.filter((image) => image.closest(".internal-embed") === null);
+	return collectElements<HTMLImageElement>(root, "img")
+		.filter((image) => image.closest(".internal-embed") === null);
 }
 
 function findStandardImage(
@@ -450,23 +413,16 @@ function findStandardImage(
 		?? images[0];
 }
 
-function collectTables(root: HTMLElement): HTMLTableElement[] {
-	return collectElements<HTMLTableElement>(root, "table");
-}
-
 function findRenderedTableCaptionBlock(root: HTMLElement): HTMLElement | null {
-	return collectElements<HTMLElement>(root, "p").find((paragraph) => (
-		/^\s*(?::|Table:)\s*/iu.test(paragraph.textContent ?? "")
-	)) ?? null;
+	return collectElements<HTMLElement>(root, "p").find((paragraph) =>
+		/^\s*:\s*/u.test(paragraph.textContent ?? "")) ?? null;
 }
 
 function findTextNodeContaining(root: HTMLElement, source: string): Text | null {
-	if (source.length === 0) {
-		return null;
-	}
-
-	return collectTextNodes(root).find((textNode) =>
-		!shouldSkipTextNode(textNode) && textNode.data.includes(source)) ?? null;
+	return source.length === 0
+		? null
+		: collectTextNodes(root).find((textNode) =>
+			!shouldSkipTextNode(textNode) && textNode.data.includes(source)) ?? null;
 }
 
 function collectTextNodes(root: HTMLElement): Text[] {
@@ -491,6 +447,8 @@ function shouldSkipTextNode(textNode: Text): boolean {
 		`.${FIGURE_CAPTION_CLASS}`,
 		`.${TABLE_CAPTION_CLASS}`,
 		".captions-wiki-caption",
+		".captions-pandoc-figure-caption",
+		".captions-pandoc-table-caption",
 	].join(", ")) !== null;
 }
 
@@ -518,31 +476,19 @@ function extractRenderedTableCaption(
 	attributeText: string | null,
 	fallback: string,
 ): string {
-	const attributeIndex = attributeText === null
-		? -1
-		: source.lastIndexOf(attributeText);
-	const withoutAttribute = attributeIndex === -1
-		? source
-		: source.slice(0, attributeIndex);
-	const caption = withoutAttribute.replace(/^\s*(?::|Table:)\s*/iu, "").trim();
+	const attributeIndex = attributeText === null ? -1 : source.lastIndexOf(attributeText);
+	const withoutAttribute = attributeIndex === -1 ? source : source.slice(0, attributeIndex);
+	const caption = withoutAttribute.replace(/^\s*:\s*/u, "").trim();
 	return caption.length > 0 ? caption : fallback;
 }
 
-function findCaptionByKey(
+function findElementByKey(
 	root: HTMLElement,
 	className: string,
 	key: string,
 ): HTMLElement | null {
 	return collectElements<HTMLElement>(root, `.${className}`)
-		.find((caption) => caption.dataset.captionKey === key) ?? null;
-}
-
-function findSourceElementByKey(
-	root: HTMLElement,
-	className: string,
-	key: string,
-): HTMLElement | null {
-	return findCaptionByKey(root, className, key);
+		.find((element) => element.dataset.captionKey === key) ?? null;
 }
 
 function findDirectTableCaption(
@@ -557,14 +503,11 @@ function findDirectTableCaption(
 }
 
 function createCrossrefTargetsById(
-	targets: PandocCaptionTarget[],
-): Map<string, PandocCrossrefCaptionTarget> {
-	const targetsById = new Map<string, PandocCrossrefCaptionTarget>();
+	targets: QuartoCaptionTarget[],
+): Map<string, QuartoCrossrefCaptionTarget> {
+	const targetsById = new Map<string, QuartoCrossrefCaptionTarget>();
 	for (const target of targets) {
-		if (
-			isPandocCrossrefTarget(target)
-			&& !targetsById.has(target.identity.id)
-		) {
+		if (isQuartoCrossrefTarget(target) && !targetsById.has(target.identity.id)) {
 			targetsById.set(target.identity.id, target);
 		}
 	}

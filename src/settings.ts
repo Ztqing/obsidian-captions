@@ -1,13 +1,13 @@
 import { type App, Plugin, PluginSettingTab, Setting } from "obsidian";
 
 import {
-	CAPTION_ENGINE_METADATA,
-	type CaptionEngineId,
+	STANDARD_MARKDOWN_ENGINE_OPTIONS,
+	type StandardMarkdownEngine,
 } from "./engine-manager";
 import type {
-	WikiCaptionAlignment,
-	WikiCaptionStyle,
-} from "./features/wiki-image/caption";
+	CaptionAlignment,
+	CaptionStyle,
+} from "./caption-settings";
 import type { CaptionsPluginSettings } from "./settings-data";
 
 interface SettingsController {
@@ -34,103 +34,109 @@ export class CaptionsSettingTab extends PluginSettingTab {
 			.setName("Engines")
 			.setHeading();
 
-		for (const engine of CAPTION_ENGINE_METADATA) {
-			new Setting(this.containerEl)
-				.setName(engine.name)
-				.setDesc(engine.description)
-				.addToggle((toggle) => toggle
-					.setValue(this.controller.settings.engines[engine.id])
-					.onChange(async (value) => {
-						await this.setEngineEnabled(engine.id, value);
-					}));
-		}
-
 		new Setting(this.containerEl)
-			.setName("Wiki images")
-			.setHeading();
-
-		const wikiEnabled = this.controller.settings.engines.wikiImage;
-		new Setting(this.containerEl)
-			.setName("Use file name as fallback")
-			.setDesc("Show the image file name when a wiki image has no caption alias.")
+			.setName("Wiki image captions")
+			.setDesc("Render aliases for wiki image embeds.")
 			.addToggle((toggle) => toggle
-				.setDisabled(!wikiEnabled)
-				.setValue(this.controller.settings.wikiImage.showFileNameAsCaption)
+				.setValue(this.controller.settings.engines.wikiImage)
 				.onChange(async (value) => {
-					this.controller.settings.wikiImage.showFileNameAsCaption = value;
+					this.controller.settings.engines.wikiImage = value;
 					await this.saveAndRefresh();
+					this.display();
 				}));
 
 		new Setting(this.containerEl)
-			.setName("Caption alignment")
-			.setDesc("Align wiki image captions relative to their image container.")
-			.addDropdown((dropdown) => dropdown
-				.setDisabled(!wikiEnabled)
-				.addOption("left", "Left")
-				.addOption("center", "Center")
-				.addOption("right", "Right")
-				.setValue(this.controller.settings.wikiImage.alignment)
-				.onChange(async (value) => {
-					if (!isWikiCaptionAlignment(value)) {
-						return;
-					}
-
-					this.controller.settings.wikiImage.alignment = value;
-					await this.saveAndRefresh();
-				}));
-
-		new Setting(this.containerEl)
-			.setName("Caption style")
-			.setDesc("Display wiki image captions using italic or normal text.")
-			.addDropdown((dropdown) => dropdown
-				.setDisabled(!wikiEnabled)
-				.addOption("italic", "Italic")
-				.addOption("normal", "Normal")
-				.setValue(this.controller.settings.wikiImage.style)
-				.onChange(async (value) => {
-					if (!isWikiCaptionStyle(value)) {
-						return;
-					}
-
-					this.controller.settings.wikiImage.style = value;
-					await this.saveAndRefresh();
-				}));
+			.setName("Standard Markdown engine")
+			.setDesc("Choose one caption and cross-reference syntax for standard images and tables.")
+			.addDropdown((dropdown) => {
+				for (const option of STANDARD_MARKDOWN_ENGINE_OPTIONS) {
+					dropdown.addOption(option.id, option.name);
+				}
+				dropdown
+					.setValue(this.controller.settings.engines.standardMarkdown)
+					.onChange(async (value) => {
+						if (!isStandardMarkdownEngine(value)) {
+							return;
+						}
+						await this.setStandardMarkdownEngine(value);
+					});
+			});
 
 		new Setting(this.containerEl)
-			.setName("Pandoc and pandoc-crossref")
+			.setName("Caption defaults")
 			.setHeading();
 
-		const pandocEnabled = this.controller.settings.engines.pandocCrossref;
 		new Setting(this.containerEl)
 			.setName("Figure label")
-			.setDesc("Label used for pandoc-crossref figure captions and references.")
+			.setDesc("Used by both standard Markdown engines for numbered figure captions and references.")
 			.addText((text) => text
-				.setDisabled(!pandocEnabled)
 				.setPlaceholder("Figure")
-				.setValue(this.controller.settings.pandocCrossref.figureLabel)
+				.setValue(this.controller.settings.captions.figureLabel)
 				.onChange(async (value) => {
-					this.controller.settings.pandocCrossref.figureLabel = value.trim() || "Figure";
+					this.controller.settings.captions.figureLabel = value.trim() || "Figure";
 					await this.saveAndRefresh();
 				}));
 
 		new Setting(this.containerEl)
 			.setName("Table label")
-			.setDesc("Label used for pandoc-crossref table captions and references.")
+			.setDesc("Used by both standard Markdown engines for numbered table captions and references.")
 			.addText((text) => text
-				.setDisabled(!pandocEnabled)
 				.setPlaceholder("Table")
-				.setValue(this.controller.settings.pandocCrossref.tableLabel)
+				.setValue(this.controller.settings.captions.tableLabel)
 				.onChange(async (value) => {
-					this.controller.settings.pandocCrossref.tableLabel = value.trim() || "Table";
+					this.controller.settings.captions.tableLabel = value.trim() || "Table";
+					await this.saveAndRefresh();
+				}));
+
+		new Setting(this.containerEl)
+			.setName("Caption alignment")
+			.setDesc("Align captions generated for wiki images, figures, and tables.")
+			.addDropdown((dropdown) => dropdown
+				.addOption("left", "Left")
+				.addOption("center", "Center")
+				.addOption("right", "Right")
+				.setValue(this.controller.settings.captions.alignment)
+				.onChange(async (value) => {
+					if (!isCaptionAlignment(value)) {
+						return;
+					}
+
+					this.controller.settings.captions.alignment = value;
+					await this.saveAndRefresh();
+				}));
+
+		new Setting(this.containerEl)
+			.setName("Caption style")
+			.setDesc("Display generated captions using italic or normal text.")
+			.addDropdown((dropdown) => dropdown
+				.addOption("italic", "Italic")
+				.addOption("normal", "Normal")
+				.setValue(this.controller.settings.captions.style)
+				.onChange(async (value) => {
+					if (!isCaptionStyle(value)) {
+						return;
+					}
+
+					this.controller.settings.captions.style = value;
+					await this.saveAndRefresh();
+				}));
+
+		new Setting(this.containerEl)
+			.setName("Use file name as fallback")
+			.setDesc("Use the decoded image file name when an image has no explicit caption.")
+			.addToggle((toggle) => toggle
+				.setValue(this.controller.settings.captions.showFileNameAsCaption)
+				.onChange(async (value) => {
+					this.controller.settings.captions.showFileNameAsCaption = value;
 					await this.saveAndRefresh();
 				}));
 	}
 
-	private async setEngineEnabled(
-		id: CaptionEngineId,
-		enabled: boolean,
+	private async setStandardMarkdownEngine(
+		engine: StandardMarkdownEngine,
 	): Promise<void> {
-		this.controller.settings.engines[id] = enabled;
+		this.controller.settings.engines.standardMarkdown = engine;
+		this.controller.settings.engines.pandocCrossref = engine === "pandocCrossref";
 		await this.saveAndRefresh();
 		this.display();
 	}
@@ -141,10 +147,14 @@ export class CaptionsSettingTab extends PluginSettingTab {
 	}
 }
 
-function isWikiCaptionAlignment(value: string): value is WikiCaptionAlignment {
+function isCaptionAlignment(value: string): value is CaptionAlignment {
 	return value === "left" || value === "center" || value === "right";
 }
 
-function isWikiCaptionStyle(value: string): value is WikiCaptionStyle {
+function isCaptionStyle(value: string): value is CaptionStyle {
 	return value === "italic" || value === "normal";
+}
+
+function isStandardMarkdownEngine(value: string): value is StandardMarkdownEngine {
+	return value === "none" || value === "pandocCrossref" || value === "quarto";
 }

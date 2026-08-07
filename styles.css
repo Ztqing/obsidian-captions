@@ -1,3 +1,29 @@
+.captions-caption {
+	color: var(--text-muted);
+	font-size: 0.85em;
+	line-height: 1.4;
+}
+
+.captions-caption--left {
+	text-align: left;
+}
+
+.captions-caption--center {
+	text-align: center;
+}
+
+.captions-caption--right {
+	text-align: right;
+}
+
+.captions-caption--italic {
+	font-style: italic;
+}
+
+.captions-caption--normal {
+	font-style: normal;
+}
+
 .captions-wiki-caption {
 	display: block;
 	box-sizing: border-box;
@@ -5,29 +31,6 @@
 	margin-top: 6px;
 	margin-bottom: 8px;
 	clear: both;
-	color: var(--text-muted);
-	font-size: 0.85em;
-	line-height: 1.4;
-}
-
-.captions-wiki-caption--left {
-	text-align: left;
-}
-
-.captions-wiki-caption--center {
-	text-align: center;
-}
-
-.captions-wiki-caption--right {
-	text-align: right;
-}
-
-.captions-wiki-caption--italic {
-	font-style: italic;
-}
-
-.captions-wiki-caption--normal {
-	font-style: normal;
 }
 
 .internal-embed.image-embed.captions-wiki-has-caption {
@@ -47,44 +50,46 @@
 
 .captions-pandoc-source-marker,
 .captions-pandoc-source-caption,
-.captions-pandoc-reference-source {
+.captions-pandoc-reference-source,
+.captions-quarto-source-marker,
+.captions-quarto-source-caption,
+.captions-quarto-reference-source {
 	display: none;
 }
 
 .captions-pandoc-figure-caption,
-.captions-pandoc-editor-caption {
+.captions-pandoc-editor-caption,
+.captions-quarto-figure-caption,
+.captions-quarto-editor-caption {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
 	margin-top: 6px;
 	margin-bottom: 10px;
-	color: var(--text-muted);
-	font-size: 0.85em;
-	line-height: 1.4;
-	text-align: center;
 }
 
-.captions-pandoc-table-caption {
+.captions-pandoc-table-caption,
+.captions-quarto-table-caption {
 	caption-side: top;
 	padding-top: 0;
 	padding-bottom: 6px;
-	color: var(--text-muted);
-	font-size: 0.85em;
-	line-height: 1.4;
-	text-align: center;
 }
 
-.captions-pandoc-editor-caption--table {
+.captions-pandoc-editor-caption--table,
+.captions-quarto-editor-caption--table {
 	margin-top: 0;
 	margin-bottom: 6px;
 }
 
-.captions-pandoc-label {
+.captions-pandoc-label,
+.captions-quarto-label {
 	font-weight: var(--font-semibold);
 }
 
 .captions-pandoc-reference > a,
-.captions-pandoc-editor-reference {
+.captions-pandoc-editor-reference,
+.captions-quarto-reference > a,
+.captions-quarto-editor-reference {
 	color: var(--link-color);
 	text-decoration-line: var(--link-decoration);
 	cursor: var(--cursor-link);

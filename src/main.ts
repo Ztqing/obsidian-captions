@@ -4,8 +4,10 @@ import { Plugin } from "obsidian";
 import {
 	CaptionEngineManager,
 	type CaptionEngineId,
+	isCaptionEngineEnabled,
 } from "./engine-manager";
 import { PandocCrossrefEngine } from "./features/pandoc-crossref/engine";
+import { QuartoEngine } from "./features/quarto/engine";
 import { WikiImageCaptionEngine } from "./features/wiki-image/engine";
 import {
 	createDefaultSettings,
@@ -26,12 +28,17 @@ export default class CaptionsPlugin extends Plugin {
 		this.engineManager = new CaptionEngineManager(
 			[
 				new WikiImageCaptionEngine(
-					() => this.settings.wikiImage,
+					() => this.settings.captions,
 					() => this.getMarkdownRoots(),
 				),
 				new PandocCrossrefEngine(
 					this.app,
-					() => this.settings.pandocCrossref,
+					() => this.settings.captions,
+					() => this.getMarkdownRoots(),
+				),
+				new QuartoEngine(
+					this.app,
+					() => this.settings.captions,
 					() => this.getMarkdownRoots(),
 				),
 			],
@@ -74,7 +81,7 @@ export default class CaptionsPlugin extends Plugin {
 	}
 
 	private isEngineEnabled(id: CaptionEngineId): boolean {
-		return this.settings.engines[id];
+		return isCaptionEngineEnabled(this.settings.engines, id);
 	}
 
 	private getMarkdownRoots(): HTMLElement[] {

@@ -15,29 +15,29 @@ import {
 } from "../../caption-settings";
 
 import {
-	getPandocTargetId,
-	isPandocCrossrefTarget,
-	parsePandocCrossrefDocument,
-	type PandocCaptionTarget,
-	type PandocCrossrefCaptionTarget,
+	getQuartoTargetId,
+	isQuartoCrossrefTarget,
+	parseQuartoDocument,
+	type QuartoCaptionTarget,
+	type QuartoCrossrefCaptionTarget,
 } from "./parser";
 import {
-	getPandocTargetLabel,
-	type PandocCrossrefSettings,
+	getQuartoTargetLabel,
+	type QuartoSettings,
 } from "./settings";
 
-type SettingsProvider = () => PandocCrossrefSettings;
+type SettingsProvider = () => QuartoSettings;
 
-export function createPandocCrossrefEditorExtension(
+export function createQuartoEditorExtension(
 	getSettings: SettingsProvider,
 ): Extension {
 	return ViewPlugin.define(
-		(view) => new PandocCrossrefViewPlugin(view, getSettings),
+		(view) => new QuartoViewPlugin(view, getSettings),
 		{ decorations: (plugin) => plugin.decorations },
 	);
 }
 
-class PandocCrossrefViewPlugin implements PluginValue {
+class QuartoViewPlugin implements PluginValue {
 	decorations: DecorationSet;
 
 	constructor(
@@ -54,14 +54,14 @@ class PandocCrossrefViewPlugin implements PluginValue {
 	}
 }
 
-class PandocCaptionWidget extends WidgetType {
+class QuartoCaptionWidget extends WidgetType {
 	private readonly labelText: string | null;
 	private readonly captionText: string | null;
 	private readonly className: string;
 
 	constructor(
-		private readonly target: PandocCaptionTarget,
-		settings: PandocCrossrefSettings,
+		private readonly target: QuartoCaptionTarget,
+		settings: QuartoSettings,
 	) {
 		super();
 		this.captionText = target.kind === "figure"
@@ -71,21 +71,21 @@ class PandocCaptionWidget extends WidgetType {
 				settings.showFileNameAsCaption,
 			)
 			: target.caption;
-		this.labelText = isPandocCrossrefTarget(target)
-			? `${getPandocTargetLabel(target.kind, settings)} ${target.identity.number}`
+		this.labelText = isQuartoCrossrefTarget(target)
+			? `${getQuartoTargetLabel(target.kind, settings)} ${target.identity.number}`
 			: null;
 		this.className = [
-			"captions-pandoc-editor-caption",
-			`captions-pandoc-editor-caption--${this.target.kind}`,
+			"captions-quarto-editor-caption",
+			`captions-quarto-editor-caption--${this.target.kind}`,
 			...getCaptionAppearanceClasses(settings),
 		].join(" ");
 	}
 
-	eq(other: PandocCaptionWidget): boolean {
+	eq(other: QuartoCaptionWidget): boolean {
 		return this.target.key === other.target.key
 			&& this.target.caption === other.target.caption
 			&& this.target.identity.mode === other.target.identity.mode
-			&& getPandocTargetId(this.target) === getPandocTargetId(other.target)
+			&& getQuartoTargetId(this.target) === getQuartoTargetId(other.target)
 			&& this.labelText === other.labelText
 			&& this.captionText === other.captionText
 			&& this.className === other.className;
@@ -95,7 +95,7 @@ class PandocCaptionWidget extends WidgetType {
 		const caption = view.dom.ownerDocument.createElement("div");
 		caption.className = this.className;
 		caption.dataset.captionKey = this.target.key;
-		const id = getPandocTargetId(this.target);
+		const id = getQuartoTargetId(this.target);
 		if (id !== null) {
 			caption.id = id;
 			caption.dataset.captionId = id;
@@ -103,7 +103,7 @@ class PandocCaptionWidget extends WidgetType {
 
 		if (this.labelText !== null) {
 			const label = view.dom.ownerDocument.createElement("span");
-			label.className = "captions-pandoc-label";
+			label.className = "captions-quarto-label";
 			label.textContent = this.labelText;
 			caption.appendChild(label);
 			if (this.captionText !== null && this.captionText.length > 0) {
@@ -116,18 +116,18 @@ class PandocCaptionWidget extends WidgetType {
 	}
 }
 
-class PandocReferenceWidget extends WidgetType {
+class QuartoReferenceWidget extends WidgetType {
 	private readonly labelText: string;
 
 	constructor(
-		private readonly target: PandocCrossrefCaptionTarget,
-		settings: PandocCrossrefSettings,
+		private readonly target: QuartoCrossrefCaptionTarget,
+		settings: QuartoSettings,
 	) {
 		super();
-		this.labelText = `${getPandocTargetLabel(target.kind, settings)} ${target.identity.number}`;
+		this.labelText = `${getQuartoTargetLabel(target.kind, settings)} ${target.identity.number}`;
 	}
 
-	eq(other: PandocReferenceWidget): boolean {
+	eq(other: QuartoReferenceWidget): boolean {
 		return this.target.identity.id === other.target.identity.id
 			&& this.target.identity.number === other.target.identity.number
 			&& this.labelText === other.labelText;
@@ -135,16 +135,14 @@ class PandocReferenceWidget extends WidgetType {
 
 	toDOM(view: EditorView): HTMLElement {
 		const anchor = view.dom.ownerDocument.createElement("a");
-		anchor.className = "captions-pandoc-editor-reference";
+		anchor.className = "captions-quarto-editor-reference";
 		anchor.setAttribute("href", `#${this.target.identity.id}`);
 		anchor.textContent = this.labelText;
 		anchor.addEventListener("click", (event) => {
 			event.preventDefault();
 			const targets = view.dom.querySelectorAll<HTMLElement>("[data-caption-id]");
-			const target = Array.from(targets)
-				.find((element) => (
-					element.dataset.captionId === this.target.identity.id
-				));
+			const target = Array.from(targets).find((element) =>
+				element.dataset.captionId === this.target.identity.id);
 			target?.scrollIntoView({ behavior: "smooth", block: "center" });
 		});
 		return anchor;
@@ -157,21 +155,18 @@ class PandocReferenceWidget extends WidgetType {
 
 function buildDecorations(
 	view: EditorView,
-	settings: PandocCrossrefSettings,
+	settings: QuartoSettings,
 ): DecorationSet {
 	if (view.state.field(editorLivePreviewField, false) !== true) {
 		return Decoration.none;
 	}
 
-	const document = parsePandocCrossrefDocument(view.state.doc.toString());
-	const targetsById = new Map<string, PandocCrossrefCaptionTarget>();
+	const document = parseQuartoDocument(view.state.doc.toString());
+	const targetsById = new Map<string, QuartoCrossrefCaptionTarget>();
 	const ranges: Array<Range<Decoration>> = [];
 
 	for (const target of document.targets) {
-		if (
-			isPandocCrossrefTarget(target)
-			&& !targetsById.has(target.identity.id)
-		) {
+		if (isQuartoCrossrefTarget(target) && !targetsById.has(target.identity.id)) {
 			targetsById.set(target.identity.id, target);
 		}
 		if (
@@ -186,42 +181,40 @@ function buildDecorations(
 			continue;
 		}
 
-		const markerFrom = target.markerFrom;
-		const markerTo = target.markerTo;
 		if (
-			markerFrom !== null
-			&& markerTo !== null
-			&& selectionOverlaps(view, markerFrom, markerTo)
+			target.markerFrom !== null
+			&& target.markerTo !== null
+			&& selectionOverlaps(view, target.markerFrom, target.markerTo)
 		) {
 			continue;
 		}
 
 		if (target.kind === "figure") {
-			if (markerFrom !== null && markerTo !== null) {
+			if (target.markerFrom !== null && target.markerTo !== null) {
 				ranges.push(Decoration.replace({}).range(
-					markerFrom,
-					markerTo,
+					target.markerFrom,
+					target.markerTo,
 				));
 			}
 			ranges.push(Decoration.widget({
 				block: true,
 				side: 1,
-				widget: new PandocCaptionWidget(target, settings),
+				widget: new QuartoCaptionWidget(target, settings),
 			}).range(target.targetTo));
 		} else {
-			if (markerFrom !== null && markerTo !== null) {
-				const hiddenLineTo = markerTo < view.state.doc.length
-					? markerTo + 1
-					: markerTo;
+			if (target.markerFrom !== null && target.markerTo !== null) {
+				const hiddenLineTo = target.markerTo < view.state.doc.length
+					? target.markerTo + 1
+					: target.markerTo;
 				ranges.push(Decoration.replace({ block: true }).range(
-					markerFrom,
+					target.markerFrom,
 					hiddenLineTo,
 				));
 			}
 			ranges.push(Decoration.widget({
 				block: true,
 				side: -1,
-				widget: new PandocCaptionWidget(target, settings),
+				widget: new QuartoCaptionWidget(target, settings),
 			}).range(target.targetFrom));
 		}
 	}
@@ -234,9 +227,8 @@ function buildDecorations(
 		) {
 			continue;
 		}
-
 		ranges.push(Decoration.replace({
-			widget: new PandocReferenceWidget(target, settings),
+			widget: new QuartoReferenceWidget(target, settings),
 		}).range(reference.from, reference.to));
 	}
 
