@@ -40,7 +40,8 @@
 	font-weight: var(--font-semibold);
 }
 
-.captions-wiki-caption {
+.captions-figure-caption,
+.captions-editor-caption {
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
@@ -49,43 +50,7 @@
 	clear: both;
 }
 
-.internal-embed.image-embed.captions-wiki-has-caption {
-	display: inline-flex;
-	flex-direction: column;
-	align-items: center;
-	vertical-align: top;
-}
-
-.internal-embed.image-embed.captions-wiki-has-caption > .image-wrapper {
-	width: 100%;
-}
-
-.internal-embed.image-embed.captions-wiki-has-caption img {
-	display: block;
-}
-
-.captions-pandoc-source-marker,
-.captions-pandoc-source-caption,
-.captions-pandoc-reference-source,
-.captions-quarto-source-marker,
-.captions-quarto-source-caption,
-.captions-quarto-reference-source {
-	display: none;
-}
-
-.captions-pandoc-figure-caption,
-.captions-pandoc-editor-caption,
-.captions-quarto-figure-caption,
-.captions-quarto-editor-caption {
-	display: block;
-	box-sizing: border-box;
-	width: 100%;
-	margin-block-start: var(--captions-caption-space-above, 12px);
-	margin-block-end: var(--captions-caption-space-below, 12px);
-}
-
-.captions-pandoc-table-caption,
-.captions-quarto-table-caption {
+.captions-table-caption {
 	padding-block-start: var(--captions-caption-space-above, 12px);
 	padding-block-end: var(--captions-caption-space-below, 12px);
 }
@@ -98,16 +63,22 @@
 	caption-side: bottom;
 }
 
-.captions-pandoc-label,
-.captions-quarto-label {
-	font-weight: var(--font-semibold);
+.captions-source-marker,
+.captions-source-caption {
+	display: none;
 }
 
-.captions-pandoc-reference > a,
-.captions-pandoc-editor-reference,
-.captions-quarto-reference > a,
-.captions-quarto-editor-reference {
-	color: var(--link-color);
-	text-decoration-line: var(--link-decoration);
-	cursor: var(--cursor-link);
+.internal-embed.image-embed.captions-figure {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	vertical-align: top;
+}
+
+.internal-embed.image-embed.captions-figure > .image-wrapper {
+	width: 100%;
+}
+
+.internal-embed.image-embed.captions-figure img {
+	display: block;
 }

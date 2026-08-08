@@ -9,10 +9,6 @@ import {
 } from "obsidian";
 
 import {
-	STANDARD_MARKDOWN_ENGINE_OPTIONS,
-	type StandardMarkdownEngine,
-} from "./engine-manager";
-import {
 	CAPTION_FONT_SIZE_PERCENT_MAX,
 	CAPTION_FONT_SIZE_PERCENT_MIN,
 	CAPTION_FONT_SIZE_PERCENT_STEP,
@@ -24,10 +20,7 @@ import {
 	type CaptionStyle,
 } from "./caption-settings";
 import { normalizeNumericSettingValue } from "./settings-controls";
-import {
-	createDefaultSettings,
-	type CaptionsPluginSettings,
-} from "./settings-data";
+import type { CaptionsPluginSettings } from "./settings-data";
 import { getSettingsStrings } from "./settings-i18n";
 
 const APPEARANCE_SAVE_DELAY_MS = 150;
@@ -64,64 +57,6 @@ export class CaptionsSettingTab extends PluginSettingTab {
 	display(): void {
 		this.containerEl.empty();
 		const strings = getSettingsStrings(getLanguage());
-		const defaults = createDefaultSettings();
-
-		this.addGroupHeading(strings.engines.heading);
-
-		new Setting(this.containerEl)
-			.setName(strings.engines.wikiImageName)
-			.setDesc(strings.engines.wikiImageDesc)
-			.addToggle((toggle) => toggle
-				.setValue(this.controller.settings.engines.wikiImage)
-				.onChange(async (value) => {
-					this.controller.settings.engines.wikiImage = value;
-					await this.saveAndRefresh();
-					this.display();
-				}));
-
-		new Setting(this.containerEl)
-			.setName(strings.engines.standardMarkdownName)
-			.setDesc(strings.engines.standardMarkdownDesc)
-			.addDropdown((dropdown) => {
-				for (const option of STANDARD_MARKDOWN_ENGINE_OPTIONS) {
-					dropdown.addOption(option.id, strings.engines.options[option.id]);
-				}
-				dropdown
-					.setValue(this.controller.settings.engines.standardMarkdown)
-					.onChange(async (value) => {
-						if (!isStandardMarkdownEngine(value)) {
-							return;
-						}
-						await this.setStandardMarkdownEngine(value);
-					});
-			});
-
-		this.addGroupHeading(strings.labels.heading);
-
-		new Setting(this.containerEl)
-			.setName(strings.labels.figureName)
-			.setDesc(strings.labels.figureDesc)
-			.addText((text) => text
-				.setPlaceholder(defaults.captions.figureLabel)
-				.setValue(this.controller.settings.captions.figureLabel)
-				.onChange(async (value) => {
-					this.controller.settings.captions.figureLabel = value.trim()
-						|| defaults.captions.figureLabel;
-					await this.saveAndRefresh();
-				}));
-
-		new Setting(this.containerEl)
-			.setName(strings.labels.tableName)
-			.setDesc(strings.labels.tableDesc)
-			.addText((text) => text
-				.setPlaceholder(defaults.captions.tableLabel)
-				.setValue(this.controller.settings.captions.tableLabel)
-				.onChange(async (value) => {
-					this.controller.settings.captions.tableLabel = value.trim()
-						|| defaults.captions.tableLabel;
-					await this.saveAndRefresh();
-				}));
-
 		this.addGroupHeading(strings.appearance.heading);
 
 		new Setting(this.containerEl)
@@ -256,15 +191,6 @@ export class CaptionsSettingTab extends PluginSettingTab {
 		super.hide();
 	}
 
-	private async setStandardMarkdownEngine(
-		engine: StandardMarkdownEngine,
-	): Promise<void> {
-		this.controller.settings.engines.standardMarkdown = engine;
-		this.controller.settings.engines.pandocCrossref = engine === "pandocCrossref";
-		await this.saveAndRefresh();
-		this.display();
-	}
-
 	private addGroupHeading(name: string): void {
 		new Setting(this.containerEl)
 			.setName(name)
@@ -391,8 +317,4 @@ function isCaptionStyle(value: string): value is CaptionStyle {
 
 function isCaptionPosition(value: string): value is CaptionPosition {
 	return value === "above" || value === "below";
-}
-
-function isStandardMarkdownEngine(value: string): value is StandardMarkdownEngine {
-	return value === "none" || value === "pandocCrossref" || value === "quarto";
 }

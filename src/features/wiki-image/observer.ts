@@ -1,5 +1,6 @@
 import type { WikiImageCaptionSettings } from "./caption";
 import { renderWikiImageCaptions } from "./dom";
+import { CAPTION_KEY } from "../shared/renderer";
 
 type SettingsProvider = () => WikiImageCaptionSettings;
 type ObserverFactory = (callback: MutationCallback) => MutationObserver;
@@ -23,9 +24,13 @@ export class WikiImageCaptionObserver {
 		}
 
 		this.destroyed = false;
-		this.observer = this.createObserver(() => this.scheduleRender());
+		this.observer = this.createObserver((mutations) => {
+			if (mutations.some(isRelevantWikiImageMutation)) {
+				this.scheduleRender();
+			}
+		});
 		this.observer.observe(this.root, {
-			attributeFilter: ["alt", "class", "src"],
+			attributeFilter: ["alt", "src"],
 			attributes: true,
 			childList: true,
 			subtree: true,
@@ -62,4 +67,25 @@ export class WikiImageCaptionObserver {
 	private render(): void {
 		renderWikiImageCaptions(this.root, this.getSettings());
 	}
+}
+
+export function isRelevantWikiImageMutation(mutation: MutationRecord): boolean {
+	if (mutation.type === "attributes") {
+		return true;
+	}
+	if (isManagedCaptionNode(mutation.target)) {
+		return false;
+	}
+
+	return Array.from(mutation.addedNodes).some(isExternalNode)
+		|| Array.from(mutation.removedNodes).some(isExternalNode);
+}
+
+function isExternalNode(node: Node): boolean {
+	return !isManagedCaptionNode(node);
+}
+
+function isManagedCaptionNode(node: Node): boolean {
+	return node.nodeType === 1
+		&& (node as HTMLElement).dataset[CAPTION_KEY] === "wiki";
 }

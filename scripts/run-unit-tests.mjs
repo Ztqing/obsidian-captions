@@ -1,9 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
 
 const testsRoot = ".test-dist/tests";
-const testFiles = collectTestFiles(testsRoot);
+const testFiles = collectTestFiles(testsRoot).filter((testPath) => {
+	const sourcePath = join(
+		"tests",
+		relative(testsRoot, testPath).replace(/\.js$/u, ".ts"),
+	);
+	return existsSync(sourcePath);
+});
 
 if (testFiles.length === 0) {
 	throw new Error(`No compiled unit tests found under ${testsRoot}.`);

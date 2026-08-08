@@ -8,6 +8,7 @@ import {
 	resolveWikiImageCaption,
 } from "../src/features/wiki-image/caption";
 import {
+	cleanupWikiImageCaptions,
 	hasWikiImageEmbed,
 	renderWikiImageCaptions,
 } from "../src/features/wiki-image/dom";
@@ -186,7 +187,7 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 	});
 
 	const renderedCaption = document.querySelector<HTMLElement>(
-		".captions-wiki-caption",
+		".captions-figure-caption",
 	);
 	assert.equal(renderedCaption?.textContent, caption);
 	assert.equal(
@@ -211,7 +212,7 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 	);
 	assert.equal(
 		document.querySelector(".internal-embed")?.classList.contains(
-			"captions-wiki-has-caption",
+			"captions-figure",
 		),
 		true,
 	);
@@ -230,7 +231,7 @@ void test("renders a Wiki alias stored on the embed when img alt is a file name"
 		figurePosition: "above",
 		tablePosition: "above",
 	});
-	assert.equal(document.querySelectorAll(".captions-wiki-caption").length, 1);
+	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
 	assert.equal(
 		renderedCaption?.classList.contains("captions-caption--right"),
 		true,
@@ -314,7 +315,7 @@ void test("renders a Wiki image that appears asynchronously in Reading view", as
 	embed.setAttribute("alt", caption);
 	root.appendChild(embed);
 	await flushDomUpdates();
-	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+	assert.equal(document.querySelector(".captions-figure-caption"), null);
 
 	const image = document.createElement("img");
 	image.setAttribute(
@@ -327,10 +328,10 @@ void test("renders a Wiki image that appears asynchronously in Reading view", as
 	await flushDomUpdates();
 
 	assert.equal(
-		document.querySelector(".captions-wiki-caption")?.textContent,
+		document.querySelector(".captions-figure-caption")?.textContent,
 		caption,
 	);
-	assert.equal(document.querySelectorAll(".captions-wiki-caption").length, 1);
+	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
 
 	observer.stop();
 });
@@ -363,23 +364,139 @@ void test("disables and re-enables Wiki Reading view observers", async () => {
 	coordinator.register(root);
 	coordinator.enable();
 	assert.equal(
-		document.querySelector(".captions-wiki-caption")?.textContent,
+		document.querySelector(".captions-figure-caption")?.textContent,
 		"Swiss Alps",
 	);
 
 	coordinator.disable();
-	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+	assert.equal(document.querySelector(".captions-figure-caption"), null);
 	const embed = requireElement(document, ".internal-embed");
 	embed.setAttribute("alt", "Updated caption");
 	await flushDomUpdates();
-	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+	assert.equal(document.querySelector(".captions-figure-caption"), null);
 
 	coordinator.enable();
 	assert.equal(
-		document.querySelector(".captions-wiki-caption")?.textContent,
+		document.querySelector(".captions-figure-caption")?.textContent,
 		"Updated caption",
 	);
 	coordinator.clear();
+});
+
+void test("cleans current and legacy Wiki markers without touching other captions", () => {
+	const { document } = parseHTML([
+		'<div id="root">',
+		'<span class="internal-embed image-embed captions-wiki-has-caption">',
+		'<img data-captions-wiki-caption="true">',
+		'<span class="captions-wiki-caption">Legacy</span>',
+		'</span>',
+		'<p><span class="captions-figure-caption" data-captions-key="figure:0">Markdown</span></p>',
+		'</div>',
+	].join(""));
+	const root = requireElement(document, "#root");
+
+	cleanupWikiImageCaptions(root);
+
+	assert.equal(document.querySelector(".captions-wiki-caption"), null);
+	assert.equal(document.querySelector("[data-captions-wiki-caption]"), null);
+	assert.equal(document.querySelector(".internal-embed")?.classList.contains("captions-wiki-has-caption"), false);
+	assert.equal(document.querySelector(".captions-figure-caption")?.textContent, "Markdown");
+});
+
+void test("coalesces Wiki observer callbacks and stops after destruction", async () => {
+	const { document } = parseHTML('<div id="root"></div>');
+	const root = requireElement(document, "#root");
+	let callback: MutationCallback | null = null;
+	let settingsReadCount = 0;
+	const observer = new WikiImageCaptionObserver(
+		root,
+		() => {
+			settingsReadCount += 1;
+			return {
+				showFileNameAsCaption: false,
+				alignment: "center",
+				style: "bold",
+				fontSizePercent: 85,
+				spacingAbovePx: 8,
+				spacingBelowPx: 8,
+				figurePosition: "below",
+				tablePosition: "above",
+			};
+		},
+		(value) => {
+			callback = value;
+			return {
+				disconnect: () => undefined,
+				observe: () => undefined,
+				takeRecords: () => [],
+			} as unknown as MutationObserver;
+		},
+	);
+	observer.start();
+	assert.equal(settingsReadCount, 1);
+	const textNode = document.createTextNode("changed");
+	const caption = document.createElement("span");
+	caption.dataset.captionsKey = "wiki";
+	const ownMutation = {
+		type: "childList",
+		target: caption,
+		addedNodes: [textNode],
+		removedNodes: [],
+	} as unknown as MutationRecord;
+	(callback as MutationCallback | null)?.([ownMutation], {} as MutationObserver);
+	await Promise.resolve();
+	assert.equal(settingsReadCount, 1);
+
+	const mutation = {
+		type: "childList",
+		target: root,
+		addedNodes: [textNode],
+		removedNodes: [],
+	} as unknown as MutationRecord;
+	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
+	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
+	await Promise.resolve();
+	assert.equal(settingsReadCount, 2);
+
+	observer.stop();
+	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
+	await Promise.resolve();
+	assert.equal(settingsReadCount, 2);
+});
+
+void test("observes only external Wiki image mutations", () => {
+	const { document } = parseHTML('<div id="root"></div>');
+	const root = requireElement(document, "#root");
+	let observerOptions: MutationObserverInit | null = null;
+	const observer = new WikiImageCaptionObserver(
+		root,
+		() => ({
+			showFileNameAsCaption: false,
+			alignment: "center",
+			style: "bold",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
+		}),
+		() => ({
+			disconnect: () => undefined,
+			observe: (_target: Node, options?: MutationObserverInit) => {
+				observerOptions = options ?? null;
+			},
+			takeRecords: () => [],
+		}) as unknown as MutationObserver,
+	);
+
+	observer.start();
+	const capturedOptions = readObserverOptions();
+	assert.deepEqual(capturedOptions?.attributeFilter, ["alt", "src"]);
+	observer.stop();
+
+	function readObserverOptions(): MutationObserverInit | null {
+		return observerOptions;
+	}
 });
 
 function requireElement(document: Document, selector: string): HTMLElement {

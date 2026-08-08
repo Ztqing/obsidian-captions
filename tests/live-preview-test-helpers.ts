@@ -37,6 +37,10 @@ export interface RenderedDecoration {
 	textContent: string | null;
 }
 
+interface DecorationFieldState {
+	decorations: DecorationSet;
+}
+
 interface TestDecorationSpec {
 	block?: boolean;
 	side?: number;
@@ -45,7 +49,7 @@ interface TestDecorationSpec {
 
 export function renderDecorations(
 	state: EditorState,
-	field: StateField<DecorationSet>,
+	field: StateField<DecorationSet | DecorationFieldState>,
 	document: Document,
 ): RenderedDecoration[] {
 	const decorations: RenderedDecoration[] = [];
@@ -53,7 +57,11 @@ export function renderDecorations(
 		dom: document.createElement("div"),
 	} as unknown as EditorView;
 
-	state.field(field).between(0, state.doc.length, (from, to, decoration) => {
+	const fieldValue = state.field(field);
+	const decorationSet = "decorations" in fieldValue
+		? fieldValue.decorations
+		: fieldValue;
+	decorationSet.between(0, state.doc.length, (from, to, decoration) => {
 		decorations.push(renderDecoration(
 			from,
 			to,

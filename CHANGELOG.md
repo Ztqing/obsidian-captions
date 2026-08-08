@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.9
+
+- Replace the Wiki, Pandoc, and Quarto execution paths with one automatic caption pipeline for Wiki images, standalone Markdown images, and pipe tables.
+- Share image-caption resolution, appearance rendering, Reading view coordination, and Live Preview model caching across supported image syntax.
+- Parse Live Preview source only when the document changes and coalesce Reading view and Wiki DOM refreshes.
+- Remove cross-reference replacement, automatic numbering, generated ID anchors, syntax-engine switches, and numbered-label settings.
+- Keep cross-reference-looking text unchanged and preserve table captions before or after pipe tables.
+- Reset pre-0.0.9 settings to the new appearance and file-name-fallback defaults.
+- Preserve mobile support, local-only processing, generated release assets, and the Obsidian 1.10.3 baseline.
+
 ## 0.0.8
 
 - Localize the settings UI to follow Obsidian's language, with English and Simplified Chinese translations.

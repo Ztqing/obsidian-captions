@@ -21,8 +21,14 @@ void test("uses explicit captions before file-name fallback", () => {
 	);
 	assert.equal(
 		resolveImageCaption("diagram.png", ["assets/source.png"], false),
-		"diagram.png",
+		null,
 	);
+});
+
+void test("treats generated extensions and pure dimensions as absent image captions", () => {
+	assert.equal(resolveImageCaption("png", ["assets/diagram.png"], false), null);
+	assert.equal(resolveImageCaption("400x300", ["assets/diagram.png"], false), null);
+	assert.equal(resolveImageCaption("400x300", ["assets/diagram.png"], true), "diagram.png");
 });
 
 void test("decodes file names and removes query and hash suffixes", () => {

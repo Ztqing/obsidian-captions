@@ -1,7 +1,9 @@
 import type { Extension } from "@codemirror/state";
-import type { MarkdownPostProcessorContext } from "obsidian";
+import {
+	editorLivePreviewField,
+	type MarkdownPostProcessorContext,
+} from "obsidian";
 
-import type { CaptionEngine } from "../../engine-manager";
 import type { WikiImageCaptionSettings } from "./caption";
 import {
 	cleanupWikiImageCaptions,
@@ -15,8 +17,7 @@ import { WikiImageCaptionRenderChild } from "./reading-view";
 type SettingsProvider = () => WikiImageCaptionSettings;
 type ReadingRootsProvider = () => HTMLElement[];
 
-export class WikiImageCaptionEngine implements CaptionEngine {
-	readonly id = "wikiImage" as const;
+export class WikiImageCaptionEngine {
 	private readonly readingCoordinator: WikiImageCaptionReadingCoordinator;
 
 	constructor(
@@ -27,7 +28,10 @@ export class WikiImageCaptionEngine implements CaptionEngine {
 	}
 
 	createEditorExtension(): Extension {
-		return createWikiImageCaptionEditorExtension(this.getSettings);
+		return createWikiImageCaptionEditorExtension(
+			this.getSettings,
+			editorLivePreviewField,
+		);
 	}
 
 	attachReadingSection(
@@ -49,11 +53,6 @@ export class WikiImageCaptionEngine implements CaptionEngine {
 		for (const root of this.getReadingRoots()) {
 			renderWikiImageCaptions(root, this.getSettings());
 		}
-	}
-
-	disable(): void {
-		this.readingCoordinator.disable();
-		this.cleanupRoots();
 	}
 
 	cleanup(): void {

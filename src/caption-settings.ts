@@ -10,11 +10,6 @@ export const CAPTION_SPACING_PX_MIN = 0;
 export const CAPTION_SPACING_PX_MAX = 32;
 export const CAPTION_SPACING_PX_STEP = 1;
 
-export interface CaptionLabelSettings {
-	figureLabel: string;
-	tableLabel: string;
-}
-
 export interface CaptionAppearanceSettings {
 	alignment: CaptionAlignment;
 	style: CaptionStyle;
@@ -30,7 +25,6 @@ export interface CaptionBehaviorSettings {
 }
 
 export interface CaptionSettings extends
-	CaptionLabelSettings,
 	CaptionAppearanceSettings,
 	CaptionBehaviorSettings {}
 
@@ -48,13 +42,6 @@ export interface CaptionAppearance {
 	classNames: string[];
 	cssVariables: ReadonlyArray<readonly [string, string]>;
 	signature: string;
-}
-
-export function getCaptionLabel(
-	kind: CaptionKind,
-	settings: Pick<CaptionSettings, "figureLabel" | "tableLabel">,
-): string {
-	return kind === "figure" ? settings.figureLabel : settings.tableLabel;
 }
 
 export function getCaptionAppearanceClasses(
@@ -155,9 +142,12 @@ export function isGeneratedFileNameCaption(
 	sourceTexts: readonly (string | null)[],
 ): boolean {
 	const cleanCaption = caption.trim();
-	return sourceTexts.some((sourceText) => (
-		getCleanFileName(sourceText) === cleanCaption
-	));
+	return IMAGE_SIZE.test(cleanCaption)
+		|| IMAGE_FILE_NAME.test(cleanCaption)
+		|| IMAGE_EXTENSION.test(cleanCaption)
+		|| sourceTexts.some((sourceText) => (
+			getCleanFileName(sourceText) === cleanCaption
+		));
 }
 
 export function resolveImageCaption(
@@ -186,3 +176,7 @@ export function resolveImageCaption(
 
 	return null;
 }
+
+const IMAGE_SIZE = /^\d+(?:x\d+)?$/u;
+const IMAGE_FILE_NAME = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/iu;
+const IMAGE_EXTENSION = /^(?:avif|bmp|gif|jpe?g|png|svg|webp)$/iu;

@@ -3,16 +3,20 @@ import {
 	type WikiImageCaptionSettings,
 } from "./caption";
 import {
-	applyCaptionAppearance,
-	getCaptionAppearance,
 	placeCaptionRelativeToTarget,
 } from "../../caption-settings";
+import {
+	CAPTION_KEY,
+	FIGURE_CAPTION_CLASS,
+	FIGURE_CONTAINER_CLASS,
+	updateCaptionElement,
+} from "../shared/renderer";
 
 const INTERNAL_EMBED_SELECTOR = ".internal-embed";
 const WIKI_IMAGE_SELECTOR = `${INTERNAL_EMBED_SELECTOR}.image-embed`;
 const WIKI_IMAGE_SOURCE = /!\[\[[^\]\r\n]*\.(?:avif|bmp|gif|jpe?g|png|svg|webp)[^\]\r\n]*\]\]/iu;
-const CAPTION_CLASS = "captions-wiki-caption";
-const HAS_CAPTION_CLASS = "captions-wiki-has-caption";
+const CAPTION_CLASS = FIGURE_CAPTION_CLASS;
+const HAS_CAPTION_CLASS = FIGURE_CONTAINER_CLASS;
 const CAPTION_MARKER = "captionsWikiCaption";
 
 export function hasWikiImageEmbed(
@@ -34,20 +38,26 @@ export function renderWikiImageCaptions(
 }
 
 export function cleanupWikiImageCaptions(root: HTMLElement): void {
-	if (root.classList.contains(CAPTION_CLASS)) {
+	if (isWikiCaption(root)) {
 		root.remove();
 	}
 
-	for (const caption of Array.from(root.querySelectorAll(`.${CAPTION_CLASS}`))) {
-		caption.remove();
+	for (const caption of Array.from(root.querySelectorAll<HTMLElement>(
+		`.${CAPTION_CLASS}, .captions-wiki-caption`,
+	))) {
+		if (isWikiCaption(caption)) {
+			caption.remove();
+		}
 	}
 
-	if (root.classList.contains(HAS_CAPTION_CLASS)) {
-		root.classList.remove(HAS_CAPTION_CLASS);
+	if (root.matches(`${WIKI_IMAGE_SELECTOR}.${HAS_CAPTION_CLASS}, ${WIKI_IMAGE_SELECTOR}.captions-wiki-has-caption`)) {
+		root.classList.remove(HAS_CAPTION_CLASS, "captions-wiki-has-caption");
 	}
 
-	for (const embed of Array.from(root.querySelectorAll(`.${HAS_CAPTION_CLASS}`))) {
-		embed.classList.remove(HAS_CAPTION_CLASS);
+	for (const embed of Array.from(root.querySelectorAll<HTMLElement>(
+		`${WIKI_IMAGE_SELECTOR}.${HAS_CAPTION_CLASS}, ${WIKI_IMAGE_SELECTOR}.captions-wiki-has-caption`,
+	))) {
+		embed.classList.remove(HAS_CAPTION_CLASS, "captions-wiki-has-caption");
 	}
 
 	const markedImages = root.querySelectorAll<HTMLImageElement>(
@@ -99,18 +109,8 @@ function renderWikiImageCaption(
 
 	const caption = existingCaption
 		?? embed.ownerDocument.createElement("div");
-	const appearance = getCaptionAppearance(settings, "figure");
-	const className = [
-		CAPTION_CLASS,
-		...appearance.classNames,
-	].join(" ");
-	if (caption.className !== className) {
-		caption.className = className;
-	}
-	applyCaptionAppearance(caption, appearance);
-	if (caption.textContent !== captionText) {
-		caption.textContent = captionText;
-	}
+	updateCaptionElement(caption, captionText, settings, "figure");
+	caption.dataset[CAPTION_KEY] = "wiki";
 
 	placeCaptionRelativeToTarget(
 		embed,
@@ -133,12 +133,20 @@ function removeCaptionClass(embed: HTMLElement): void {
 
 function findDirectCaption(embed: HTMLElement): HTMLElement | null {
 	for (const child of Array.from(embed.children)) {
-		if (child.classList.contains(CAPTION_CLASS)) {
+		if (isWikiCaption(child as HTMLElement)) {
 			return child as HTMLElement;
 		}
 	}
 
 	return null;
+}
+
+function isWikiCaption(element: HTMLElement): boolean {
+	return element.classList.contains("captions-wiki-caption")
+		|| (
+			element.classList.contains(CAPTION_CLASS)
+			&& element.dataset[CAPTION_KEY] === "wiki"
+		);
 }
 
 function toKebabCase(value: string): string {

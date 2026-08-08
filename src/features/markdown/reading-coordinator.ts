@@ -1,15 +1,15 @@
-import type { QuartoDocument } from "./parser";
+import type { CaptionSettings } from "../../caption-settings";
+import type { CaptionDocument } from "./parser";
 import {
-	cleanupQuartoReadingView,
-	renderQuartoReadingSections,
-	type QuartoReadingSection,
+	cleanupCaptionReadingView,
+	renderCaptionReadingSections,
+	type CaptionReadingSection,
 } from "./reading-view";
-import type { QuartoSettings } from "./settings";
 
-type SettingsProvider = () => QuartoSettings;
-type DocumentLoader = () => Promise<QuartoDocument>;
+type SettingsProvider = () => CaptionSettings;
+type DocumentLoader = () => Promise<CaptionDocument>;
 
-export interface QuartoReadingSectionInformation {
+export interface CaptionReadingSectionInformation {
 	lineStart: number;
 	lineEnd: number;
 }
@@ -17,18 +17,19 @@ export interface QuartoReadingSectionInformation {
 interface SectionRegistration {
 	docId: string;
 	root: HTMLElement;
-	sectionInfo: QuartoReadingSectionInformation;
+	sectionInfo: CaptionReadingSectionInformation;
 	loadDocument: DocumentLoader;
 	generation: number;
 }
 
 interface DocumentRenderState {
-	document: QuartoDocument;
-	sections: Map<HTMLElement, QuartoReadingSection>;
+	document: CaptionDocument;
+	sections: Map<HTMLElement, CaptionReadingSection>;
 	scheduled: boolean;
 }
 
-export class QuartoReadingCoordinator {
+/** Coalesces section lifecycle events so a note is parsed and rendered once. */
+export class CaptionReadingCoordinator {
 	private readonly registrations = new Map<HTMLElement, SectionRegistration>();
 	private readonly documents = new Map<string, DocumentRenderState>();
 	private enabled = false;
@@ -38,7 +39,7 @@ export class QuartoReadingCoordinator {
 	registerSection(
 		docId: string,
 		root: HTMLElement,
-		sectionInfo: QuartoReadingSectionInformation,
+		sectionInfo: CaptionReadingSectionInformation,
 		loadDocument: DocumentLoader,
 	): void {
 		const previous = this.registrations.get(root);
@@ -57,7 +58,7 @@ export class QuartoReadingCoordinator {
 		if (this.enabled) {
 			this.activate(registration);
 		} else {
-			cleanupQuartoReadingView(root);
+			cleanupCaptionReadingView(root);
 		}
 	}
 
@@ -66,11 +67,10 @@ export class QuartoReadingCoordinator {
 		if (registration === undefined) {
 			return;
 		}
-
 		registration.generation += 1;
 		this.registrations.delete(root);
 		this.removeRenderedSection(registration);
-		cleanupQuartoReadingView(root);
+		cleanupCaptionReadingView(root);
 	}
 
 	enable(): void {
@@ -78,7 +78,6 @@ export class QuartoReadingCoordinator {
 			this.refresh();
 			return;
 		}
-
 		this.enabled = true;
 		for (const registration of this.registrations.values()) {
 			this.activate(registration);
@@ -98,7 +97,7 @@ export class QuartoReadingCoordinator {
 		this.enabled = false;
 		for (const registration of this.registrations.values()) {
 			registration.generation += 1;
-			cleanupQuartoReadingView(registration.root);
+			cleanupCaptionReadingView(registration.root);
 		}
 		this.documents.clear();
 	}
@@ -121,15 +120,11 @@ export class QuartoReadingCoordinator {
 
 			let state = this.documents.get(registration.docId);
 			if (state === undefined) {
-				state = {
-					document,
-					sections: new Map(),
-					scheduled: false,
-				};
+				state = { document, sections: new Map(), scheduled: false };
 				this.documents.set(registration.docId, state);
 			} else if (state.document !== document) {
 				for (const section of state.sections.values()) {
-					cleanupQuartoReadingView(section.root);
+					cleanupCaptionReadingView(section.root);
 				}
 				state.document = document;
 			}
@@ -161,12 +156,12 @@ export class QuartoReadingCoordinator {
 			return;
 		}
 		state.scheduled = true;
-		void Promise.resolve().then(() => {
+		queueMicrotask(() => {
 			state.scheduled = false;
 			if (!this.enabled || !this.hasDocumentState(state)) {
 				return;
 			}
-			renderQuartoReadingSections(
+			renderCaptionReadingSections(
 				Array.from(state.sections.values()),
 				state.document,
 				this.getSettings(),
@@ -175,11 +170,6 @@ export class QuartoReadingCoordinator {
 	}
 
 	private hasDocumentState(target: DocumentRenderState): boolean {
-		for (const state of this.documents.values()) {
-			if (state === target) {
-				return true;
-			}
-		}
-		return false;
+		return Array.from(this.documents.values()).includes(target);
 	}
 }

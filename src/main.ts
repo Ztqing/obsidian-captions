@@ -1,14 +1,7 @@
 import type { Extension } from "@codemirror/state";
 import { Plugin } from "obsidian";
 
-import {
-	CaptionEngineManager,
-	type CaptionEngineId,
-	isCaptionEngineEnabled,
-} from "./engine-manager";
-import { PandocCrossrefEngine } from "./features/pandoc-crossref/engine";
-import { QuartoEngine } from "./features/quarto/engine";
-import { WikiImageCaptionEngine } from "./features/wiki-image/engine";
+import { CaptionEngine } from "./features/caption-engine";
 import {
 	createDefaultSettings,
 	normalizeSettings,
@@ -20,47 +13,33 @@ export default class CaptionsPlugin extends Plugin {
 	settings: CaptionsPluginSettings = createDefaultSettings();
 
 	private readonly editorExtensions: Extension[] = [];
-	private engineManager: CaptionEngineManager | null = null;
+	private captionEngine: CaptionEngine | null = null;
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
 
-		this.engineManager = new CaptionEngineManager(
-			[
-				new WikiImageCaptionEngine(
-					() => this.settings.captions,
-					() => this.getMarkdownRoots(),
-				),
-				new PandocCrossrefEngine(
-					this.app,
-					() => this.settings.captions,
-					() => this.getMarkdownRoots(),
-				),
-				new QuartoEngine(
-					this.app,
-					() => this.settings.captions,
-					() => this.getMarkdownRoots(),
-				),
-			],
-			(id) => this.isEngineEnabled(id),
+		this.captionEngine = new CaptionEngine(
+			this.app,
+			() => this.settings.captions,
+			() => this.getMarkdownRoots(),
 		);
 
 		this.editorExtensions.push(
-			...this.engineManager.createEditorExtensions(),
+			...this.captionEngine.createEditorExtensions(),
 		);
 		this.registerEditorExtension(this.editorExtensions);
 
 		this.registerMarkdownPostProcessor((root, context) => {
-			this.engineManager?.attachReadingSection(root, context);
+			this.captionEngine?.attachReadingSection(root, context);
 		});
 
 		this.addSettingTab(new CaptionsSettingTab(this.app, this));
-		this.engineManager.refresh();
+		this.captionEngine.refresh();
 	}
 
 	onunload(): void {
-		this.engineManager?.cleanup();
-		this.engineManager = null;
+		this.captionEngine?.cleanup();
+		this.captionEngine = null;
 	}
 
 	async saveSettings(): Promise<void> {
@@ -68,20 +47,11 @@ export default class CaptionsPlugin extends Plugin {
 	}
 
 	refreshCaptions(): void {
-		if (this.engineManager === null) {
+		if (this.captionEngine === null) {
 			return;
 		}
-
-		this.editorExtensions.length = 0;
-		this.editorExtensions.push(
-			...this.engineManager.createEditorExtensions(),
-		);
 		this.app.workspace.updateOptions();
-		this.engineManager.refresh();
-	}
-
-	private isEngineEnabled(id: CaptionEngineId): boolean {
-		return isCaptionEngineEnabled(this.settings.engines, id);
+		this.captionEngine.refresh();
 	}
 
 	private getMarkdownRoots(): HTMLElement[] {

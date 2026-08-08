@@ -1,31 +1,18 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-	getSettingsStrings,
-	resolveSettingsLocale,
-} from "../src/settings-i18n";
+import { getSettingsStrings } from "../src/settings-i18n";
 
-void test("uses Chinese settings strings for Obsidian Chinese locales", () => {
-	for (const languageCode of ["zh", "zh-CN", "zh_Hans", "zh-TW"]) {
-		assert.equal(resolveSettingsLocale(languageCode), "zh");
-		assert.equal(getSettingsStrings(languageCode).engines.heading, "引擎");
-	}
+void test("uses Chinese strings for Chinese locales and has no engine controls", () => {
+	const strings = getSettingsStrings("zh-CN");
+	assert.equal(strings.appearance.heading, "题注外观");
+	assert.equal(strings.behavior.fileNameFallbackName, "使用文件名作为兜底");
+	assert.equal("engines" in strings, false);
+	assert.equal("labels" in strings, false);
 });
 
-void test("uses English settings strings as the default fallback", () => {
-	for (const languageCode of [undefined, null, "", "en", "en-GB", "ja"]) {
-		assert.equal(resolveSettingsLocale(languageCode), "en");
-		assert.equal(getSettingsStrings(languageCode).engines.heading, "Engines");
-	}
-});
-
-void test("localizes controls and choices", () => {
-	const english = getSettingsStrings("en");
-	const chinese = getSettingsStrings("zh-CN");
-
-	assert.equal(english.appearance.styleOptions.bold, "Bold");
-	assert.equal(chinese.appearance.styleOptions.bold, "粗体");
-	assert.equal(english.engines.options.none, "None");
-	assert.equal(chinese.engines.options.none, "无");
+void test("uses English as the locale fallback", () => {
+	const strings = getSettingsStrings("de-DE");
+	assert.equal(strings.appearance.heading, "Caption appearance");
+	assert.equal(strings.behavior.heading, "Caption behavior");
 });

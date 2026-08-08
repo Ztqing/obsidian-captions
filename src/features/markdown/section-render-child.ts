@@ -3,18 +3,18 @@ import {
 	MarkdownRenderChild,
 } from "obsidian";
 
-import type { QuartoDocument } from "./parser";
-import type { QuartoReadingCoordinator } from "./reading-coordinator";
+import type { CaptionDocument } from "./parser";
+import type { CaptionReadingCoordinator } from "./reading-coordinator";
 
-export class QuartoSectionRenderChild extends MarkdownRenderChild {
+export class CaptionSectionRenderChild extends MarkdownRenderChild {
 	private registered = false;
 
 	constructor(
 		containerEl: HTMLElement,
 		private readonly docId: string,
 		private readonly sectionInfo: MarkdownSectionInformation,
-		private readonly loadDocument: () => Promise<QuartoDocument>,
-		private readonly coordinator: QuartoReadingCoordinator,
+		private readonly loadDocument: () => Promise<CaptionDocument>,
+		private readonly coordinator: CaptionReadingCoordinator,
 	) {
 		super(containerEl);
 	}

@@ -1,41 +1,39 @@
-export type PandocTargetKind = "figure" | "table";
+export type CaptionTargetKind = "figure" | "table";
 
-export type PandocTargetIdentity =
-	| { mode: "caption" }
-	| { mode: "anchor"; id: string }
-	| { mode: "crossref"; id: string; number: number };
-
-export interface PandocCaptionTarget {
-	key: string;
-	kind: PandocTargetKind;
-	caption: string;
-	imageSource: string | null;
-	identity: PandocTargetIdentity;
-	targetFrom: number;
-	targetTo: number;
-	targetStartLine: number;
-	targetEndLine: number;
-	markerFrom: number | null;
-	markerTo: number | null;
-	markerText: string | null;
-	attributeText: string | null;
-	markerLine: number;
-}
-
-export type PandocCrossrefCaptionTarget = PandocCaptionTarget & {
-	identity: Extract<PandocTargetIdentity, { mode: "crossref" }>;
-};
-
-export interface PandocCrossrefReference {
-	id: string;
+export interface SourceSpan {
 	from: number;
 	to: number;
+	startLine: number;
+	endLine: number;
 }
 
-export interface PandocCrossrefDocument {
-	targets: PandocCaptionTarget[];
-	references: PandocCrossrefReference[];
-	tableBlocks: PandocTableBlock[];
+export interface ImageTarget {
+	key: string;
+	kind: "figure";
+	caption: string;
+	imageSource: string | null;
+	target: SourceSpan;
+	marker: SourceSpan | null;
+	markerText: string | null;
+}
+
+export interface TableTarget {
+	key: string;
+	kind: "table";
+	caption: string;
+	target: SourceSpan;
+	marker: SourceSpan;
+	markerText: string;
+	attributeText: string | null;
+}
+
+export type CaptionTarget = ImageTarget | TableTarget;
+
+export type TableBlock = SourceSpan;
+
+export interface CaptionDocument {
+	targets: CaptionTarget[];
+	tableBlocks: TableBlock[];
 }
 
 interface SourceLine {
@@ -46,53 +44,43 @@ interface SourceLine {
 	excluded: boolean;
 }
 
-export interface PandocTableBlock {
-	from: number;
-	to: number;
-	startLine: number;
-	endLine: number;
-}
-
 interface ParsedAttribute {
 	from: number;
 	text: string;
-	id: string | null;
 }
 
 interface ParsedTableCaption {
 	caption: string;
 	attributeText: string | null;
-	id: string | null;
+	line: SourceLine;
 	markerFrom: number;
 	markerTo: number;
 	markerText: string;
-	line: SourceLine;
 }
 
 const ATTRIBUTE = /\{([^{}]*)\}\s*$/u;
-const ATTRIBUTE_ID = /(?:^|\s)#([A-Za-z0-9][A-Za-z0-9_.:-]*)(?=\s|$)/u;
 const ATTRIBUTE_ITEM = /(?:^|\s)(?:#[A-Za-z0-9][A-Za-z0-9_.:-]*|\.[A-Za-z0-9][A-Za-z0-9_.:-]*|[A-Za-z_][A-Za-z0-9_.:-]*=(?:"[^"]*"|'[^']*'|[^\s]+))(?=\s|$)/gu;
-const FIGURE_CROSSREF_ID = /^fig:[A-Za-z0-9][A-Za-z0-9_.:-]*$/u;
-const TABLE_CROSSREF_ID = /^tbl:[A-Za-z0-9][A-Za-z0-9_.:-]*$/u;
-const REFERENCE = /\[@((?:fig|tbl):[A-Za-z0-9][A-Za-z0-9_.:-]*)\]/gu;
 
-export function parsePandocCrossrefDocument(
-	source: string,
-): PandocCrossrefDocument {
+/**
+ * Parse the caption syntax that is shared by Reading view and Live Preview.
+ * It intentionally has no Obsidian or DOM dependency.
+ */
+export function parseCaptionDocument(source: string): CaptionDocument {
 	const lines = createSourceLines(source);
 	markExcludedLines(lines);
 
-	const figures = lines.flatMap((line) => {
-		const figure = parseFigure(line);
-		return figure === null ? [] : [figure];
+	const images = lines.flatMap((line) => {
+		const image = parseStandaloneImage(line);
+		return image === null ? [] : [image];
 	});
 	const tableBlocks = findPipeTableBlocks(lines);
-	const tableCaptions = lines.flatMap((line) => {
+	const usedTableBlocks = new Set<TableBlock>();
+	const tables = lines.flatMap((line) => {
 		const caption = parseTableCaption(line);
-		return caption === null ? [] : [caption];
-	});
-	const usedTableBlocks = new Set<PandocTableBlock>();
-	const tables = tableCaptions.flatMap((caption) => {
+		if (caption === null) {
+			return [];
+		}
+
 		const tableBlock = findCaptionTable(caption.line.index, tableBlocks, lines);
 		if (tableBlock === null || usedTableBlocks.has(tableBlock)) {
 			return [];
@@ -103,42 +91,24 @@ export function parsePandocCrossrefDocument(
 			key: `table:${tableBlock.from}:${caption.markerFrom}`,
 			kind: "table" as const,
 			caption: caption.caption,
-			imageSource: null,
-			identity: createIdentity("table", caption.id),
-			targetFrom: tableBlock.from,
-			targetTo: tableBlock.to,
-			targetStartLine: tableBlock.startLine,
-			targetEndLine: tableBlock.endLine,
-			markerFrom: caption.markerFrom,
-			markerTo: caption.markerTo,
+			target: tableBlock,
+			marker: {
+				from: caption.markerFrom,
+				to: caption.markerTo,
+				startLine: caption.line.index,
+				endLine: caption.line.index,
+			},
 			markerText: caption.markerText,
 			attributeText: caption.attributeText,
-			markerLine: caption.line.index,
 		}];
 	});
 
-	const targets = [...figures, ...tables].sort(
-		(left, right) => left.targetFrom - right.targetFrom,
-	);
-	assignNumbers(targets);
-
-	const targetLines = new Set(targets.flatMap((target) => [
-		target.targetStartLine,
-		target.markerLine,
-	]));
-	const references = parseReferences(lines, targetLines);
-
-	return { targets, references, tableBlocks };
-}
-
-export function isPandocCrossrefTarget(
-	target: PandocCaptionTarget,
-): target is PandocCrossrefCaptionTarget {
-	return target.identity.mode === "crossref";
-}
-
-export function getPandocTargetId(target: PandocCaptionTarget): string | null {
-	return target.identity.mode === "caption" ? null : target.identity.id;
+	return {
+		targets: [...images, ...tables].sort(
+			(left, right) => left.target.from - right.target.from,
+		),
+		tableBlocks,
+	};
 }
 
 function createSourceLines(source: string): SourceLine[] {
@@ -147,7 +117,7 @@ function createSourceLines(source: string): SourceLine[] {
 
 	return rawLines.map((rawLine, index) => {
 		const text = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-		const line = {
+		const line: SourceLine = {
 			text,
 			from: offset,
 			to: offset + text.length,
@@ -160,31 +130,26 @@ function createSourceLines(source: string): SourceLine[] {
 }
 
 function markExcludedLines(lines: SourceLine[]): void {
-	let inFrontmatter = lines[0]?.text.trim() === "---";
-	let frontmatterClosed = !inFrontmatter;
+	let frontmatterOpen = lines[0]?.text.trim() === "---";
 	let fenceCharacter: "`" | "~" | null = null;
 	let fenceLength = 0;
 
 	for (const line of lines) {
 		const trimmed = line.text.trim();
-
-		if (!frontmatterClosed) {
+		if (frontmatterOpen) {
 			line.excluded = true;
 			if (line.index > 0 && (trimmed === "---" || trimmed === "...")) {
-				inFrontmatter = false;
-				frontmatterClosed = true;
+				frontmatterOpen = false;
 			}
-			continue;
-		}
-
-		if (inFrontmatter) {
-			line.excluded = true;
 			continue;
 		}
 
 		if (fenceCharacter !== null) {
 			line.excluded = true;
-			const closingFence = new RegExp(`^${fenceCharacter}{${fenceLength},}\\s*$`, "u");
+			const closingFence = new RegExp(
+				`^${fenceCharacter}{${fenceLength},}\\s*$`,
+				"u",
+			);
 			if (closingFence.test(trimmed)) {
 				fenceCharacter = null;
 				fenceLength = 0;
@@ -201,7 +166,7 @@ function markExcludedLines(lines: SourceLine[]): void {
 	}
 }
 
-function parseFigure(line: SourceLine): PandocCaptionTarget | null {
+function parseStandaloneImage(line: SourceLine): ImageTarget | null {
 	if (line.excluded) {
 		return null;
 	}
@@ -229,27 +194,28 @@ function parseFigure(line: SourceLine): PandocCaptionTarget | null {
 		return null;
 	}
 
-	const caption = unescapeImageCaption(imageMarkup.slice(2, captionEnd));
-	const imageSource = parseImageDestination(
-		imageMarkup.slice(captionEnd + 2, -1),
-	);
-
-	const trimmedFrom = line.from + leadingWhitespace;
+	const targetFrom = line.from + leadingWhitespace;
+	const targetTo = targetFrom + trimmed.length;
 	return {
-		key: `figure:${trimmedFrom}`,
+		key: `figure:${targetFrom}`,
 		kind: "figure",
-		caption,
-		imageSource,
-		identity: createIdentity("figure", attribute?.id ?? null),
-		targetFrom: trimmedFrom,
-		targetTo: trimmedFrom + trimmed.length,
-		targetStartLine: line.index,
-		targetEndLine: line.index,
-		markerFrom: attribute === null ? null : trimmedFrom + attribute.from,
-		markerTo: attribute === null ? null : trimmedFrom + trimmed.length,
+		caption: unescapeImageCaption(imageMarkup.slice(2, captionEnd)),
+		imageSource: parseImageDestination(imageMarkup.slice(captionEnd + 2, -1)),
+		target: {
+			from: targetFrom,
+			to: targetTo,
+			startLine: line.index,
+			endLine: line.index,
+		},
+		marker: attribute === null
+			? null
+			: {
+				from: targetFrom + attribute.from,
+				to: targetTo,
+				startLine: line.index,
+				endLine: line.index,
+			},
 		markerText: attribute?.text ?? null,
-		attributeText: attribute?.text ?? null,
-		markerLine: line.index,
 	};
 }
 
@@ -276,33 +242,25 @@ function parseTrailingAttribute(source: string): ParsedAttribute | null {
 		return null;
 	}
 
-	return {
-		from: match.index,
-		text: match[0].trim(),
-		id: ATTRIBUTE_ID.exec(content)?.[1] ?? null,
-	};
+	return { from: match.index, text: match[0].trim() };
 }
 
-function findImageCaptionEnd(imageSource: string): number {
+function findImageCaptionEnd(source: string): number {
 	let escaped = false;
-
-	for (let index = 2; index < imageSource.length; index += 1) {
-		const character = imageSource[index];
+	for (let index = 2; index < source.length; index += 1) {
+		const character = source[index];
 		if (escaped) {
 			escaped = false;
 			continue;
 		}
-
 		if (character === "\\") {
 			escaped = true;
 			continue;
 		}
-
 		if (character === "]") {
 			return index;
 		}
 	}
-
 	return -1;
 }
 
@@ -310,9 +268,8 @@ function unescapeImageCaption(caption: string): string {
 	return caption.replace(/\\([[\]\\])/gu, "$1");
 }
 
-function findPipeTableBlocks(lines: SourceLine[]): PandocTableBlock[] {
-	const blocks: PandocTableBlock[] = [];
-
+function findPipeTableBlocks(lines: SourceLine[]): TableBlock[] {
+	const blocks: TableBlock[] = [];
 	for (let index = 0; index < lines.length - 1; index += 1) {
 		const header = lines[index];
 		const separator = lines[index + 1];
@@ -352,7 +309,6 @@ function findPipeTableBlocks(lines: SourceLine[]): PandocTableBlock[] {
 		}
 		index = endLine;
 	}
-
 	return blocks;
 }
 
@@ -370,16 +326,12 @@ function parseTableCaption(line: SourceLine): ParsedTableCaption | null {
 	const trimmed = line.text.trim();
 	const leadingWhitespace = line.text.length - line.text.trimStart().length;
 	const attribute = parseTrailingAttribute(trimmed);
-	const prefixAndCaption = (
-		attribute === null ? trimmed : trimmed.slice(0, attribute.from)
-	).trimEnd();
+	const prefixAndCaption = (attribute === null
+		? trimmed
+		: trimmed.slice(0, attribute.from)).trimEnd();
 	const captionMatch = /^(?::|Table:)\s*(.*)$/iu.exec(prefixAndCaption);
-	if (captionMatch === null) {
-		return null;
-	}
-
-	const caption = captionMatch[1]?.trim() ?? "";
-	if (caption.length === 0 && (attribute?.id ?? null) === null) {
+	const caption = captionMatch?.[1]?.trim() ?? "";
+	if (captionMatch === null || caption.length === 0) {
 		return null;
 	}
 
@@ -387,19 +339,18 @@ function parseTableCaption(line: SourceLine): ParsedTableCaption | null {
 	return {
 		caption,
 		attributeText: attribute?.text ?? null,
-		id: attribute?.id ?? null,
+		line,
 		markerFrom,
 		markerTo: markerFrom + trimmed.length,
 		markerText: trimmed,
-		line,
 	};
 }
 
 function findCaptionTable(
 	captionLine: number,
-	blocks: PandocTableBlock[],
+	blocks: TableBlock[],
 	lines: SourceLine[],
-): PandocTableBlock | null {
+): TableBlock | null {
 	for (let index = blocks.length - 1; index >= 0; index -= 1) {
 		const block = blocks[index];
 		if (
@@ -411,9 +362,10 @@ function findCaptionTable(
 		}
 	}
 
-	return blocks.find((block) =>
+	return blocks.find((block) => (
 		block.startLine > captionLine
-		&& linesAreBlank(lines, captionLine + 1, block.startLine - 1)) ?? null;
+		&& linesAreBlank(lines, captionLine + 1, block.startLine - 1)
+	)) ?? null;
 }
 
 function linesAreBlank(lines: SourceLine[], from: number, to: number): boolean {
@@ -423,73 +375,4 @@ function linesAreBlank(lines: SourceLine[], from: number, to: number): boolean {
 		}
 	}
 	return true;
-}
-
-function createIdentity(
-	kind: PandocTargetKind,
-	id: string | null,
-): PandocTargetIdentity {
-	if (id === null) {
-		return { mode: "caption" };
-	}
-
-	const isCrossref = kind === "figure"
-		? FIGURE_CROSSREF_ID.test(id)
-		: TABLE_CROSSREF_ID.test(id);
-	return isCrossref
-		? { mode: "crossref", id, number: 0 }
-		: { mode: "anchor", id };
-}
-
-function assignNumbers(targets: PandocCaptionTarget[]): void {
-	let figureNumber = 0;
-	let tableNumber = 0;
-
-	for (const target of targets) {
-		if (!isPandocCrossrefTarget(target)) {
-			continue;
-		}
-
-		if (target.kind === "figure") {
-			figureNumber += 1;
-			target.identity = {
-				...target.identity,
-				number: figureNumber,
-			};
-		} else {
-			tableNumber += 1;
-			target.identity = {
-				...target.identity,
-				number: tableNumber,
-			};
-		}
-	}
-}
-
-function parseReferences(
-	lines: SourceLine[],
-	targetLines: Set<number>,
-): PandocCrossrefReference[] {
-	const references: PandocCrossrefReference[] = [];
-
-	for (const line of lines) {
-		if (line.excluded || targetLines.has(line.index)) {
-			continue;
-		}
-
-		for (const match of line.text.matchAll(REFERENCE)) {
-			const id = match[1];
-			if (id === undefined || match.index === undefined) {
-				continue;
-			}
-
-			references.push({
-				id,
-				from: line.from + match.index,
-				to: line.from + match.index + match[0].length,
-			});
-		}
-	}
-
-	return references;
 }

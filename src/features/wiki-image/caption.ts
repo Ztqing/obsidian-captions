@@ -21,7 +21,6 @@ export interface WikiImageCaptionCandidates {
 }
 
 const WIKI_IMAGE_SIZE = /^\d+(?:x\d+)?$/;
-const IMAGE_FILE_EXTENSION = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/iu;
 export function parseWikiImageCaption(
 	altText: string | null,
 	settings: Pick<WikiImageCaptionSettings, "showFileNameAsCaption">,
@@ -90,9 +89,5 @@ function parseExplicitWikiImageCaption(
 	if (sourceTexts.some((sourceText) => getCleanFileName(sourceText) === caption)) {
 		return null;
 	}
-	if (IMAGE_FILE_EXTENSION.test(caption)) {
-		return null;
-	}
-
 	return resolveImageCaption(caption, sourceTexts, false);
 }
