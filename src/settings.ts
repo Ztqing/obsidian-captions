@@ -1,4 +1,12 @@
-import { type App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import {
+	type App,
+	getLanguage,
+	Plugin,
+	PluginSettingTab,
+	Setting,
+	type SliderComponent,
+	type TextComponent,
+} from "obsidian";
 
 import {
 	STANDARD_MARKDOWN_ENGINE_OPTIONS,
@@ -15,7 +23,12 @@ import {
 	type CaptionPosition,
 	type CaptionStyle,
 } from "./caption-settings";
-import type { CaptionsPluginSettings } from "./settings-data";
+import { normalizeNumericSettingValue } from "./settings-controls";
+import {
+	createDefaultSettings,
+	type CaptionsPluginSettings,
+} from "./settings-data";
+import { getSettingsStrings } from "./settings-i18n";
 
 const APPEARANCE_SAVE_DELAY_MS = 150;
 
@@ -23,6 +36,16 @@ interface SettingsController {
 	settings: CaptionsPluginSettings;
 	refreshCaptions(): void;
 	saveSettings(): Promise<void>;
+}
+
+interface NumericSliderOptions {
+	value: number;
+	min: number;
+	max: number;
+	step: number;
+	unit: string;
+	label: string;
+	onChange(value: number): void;
 }
 
 export class CaptionsSettingTab extends PluginSettingTab {
@@ -40,14 +63,14 @@ export class CaptionsSettingTab extends PluginSettingTab {
 
 	display(): void {
 		this.containerEl.empty();
+		const strings = getSettingsStrings(getLanguage());
+		const defaults = createDefaultSettings();
+
+		this.addGroupHeading(strings.engines.heading);
 
 		new Setting(this.containerEl)
-			.setName("Engines")
-			.setHeading();
-
-		new Setting(this.containerEl)
-			.setName("Wiki image captions")
-			.setDesc("Render aliases for wiki image embeds.")
+			.setName(strings.engines.wikiImageName)
+			.setDesc(strings.engines.wikiImageDesc)
 			.addToggle((toggle) => toggle
 				.setValue(this.controller.settings.engines.wikiImage)
 				.onChange(async (value) => {
@@ -57,11 +80,11 @@ export class CaptionsSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(this.containerEl)
-			.setName("Standard Markdown engine")
-			.setDesc("Choose one caption and cross-reference syntax for standard images and tables.")
+			.setName(strings.engines.standardMarkdownName)
+			.setDesc(strings.engines.standardMarkdownDesc)
 			.addDropdown((dropdown) => {
 				for (const option of STANDARD_MARKDOWN_ENGINE_OPTIONS) {
-					dropdown.addOption(option.id, option.name);
+					dropdown.addOption(option.id, strings.engines.options[option.id]);
 				}
 				dropdown
 					.setValue(this.controller.settings.engines.standardMarkdown)
@@ -73,43 +96,41 @@ export class CaptionsSettingTab extends PluginSettingTab {
 					});
 			});
 
-		new Setting(this.containerEl)
-			.setName("Caption labels")
-			.setHeading();
+		this.addGroupHeading(strings.labels.heading);
 
 		new Setting(this.containerEl)
-			.setName("Figure label")
-			.setDesc("Used by both standard Markdown engines for numbered figure captions and references.")
+			.setName(strings.labels.figureName)
+			.setDesc(strings.labels.figureDesc)
 			.addText((text) => text
-				.setPlaceholder("Figure")
+				.setPlaceholder(defaults.captions.figureLabel)
 				.setValue(this.controller.settings.captions.figureLabel)
 				.onChange(async (value) => {
-					this.controller.settings.captions.figureLabel = value.trim() || "Figure";
+					this.controller.settings.captions.figureLabel = value.trim()
+						|| defaults.captions.figureLabel;
 					await this.saveAndRefresh();
 				}));
 
 		new Setting(this.containerEl)
-			.setName("Table label")
-			.setDesc("Used by both standard Markdown engines for numbered table captions and references.")
+			.setName(strings.labels.tableName)
+			.setDesc(strings.labels.tableDesc)
 			.addText((text) => text
-				.setPlaceholder("Table")
+				.setPlaceholder(defaults.captions.tableLabel)
 				.setValue(this.controller.settings.captions.tableLabel)
 				.onChange(async (value) => {
-					this.controller.settings.captions.tableLabel = value.trim() || "Table";
+					this.controller.settings.captions.tableLabel = value.trim()
+						|| defaults.captions.tableLabel;
 					await this.saveAndRefresh();
 				}));
 
-		new Setting(this.containerEl)
-			.setName("Caption appearance")
-			.setHeading();
+		this.addGroupHeading(strings.appearance.heading);
 
 		new Setting(this.containerEl)
-			.setName("Caption alignment")
-			.setDesc("Align captions generated for wiki images, figures, and tables.")
+			.setName(strings.appearance.alignmentName)
+			.setDesc(strings.appearance.alignmentDesc)
 			.addDropdown((dropdown) => dropdown
-				.addOption("left", "Left")
-				.addOption("center", "Center")
-				.addOption("right", "Right")
+				.addOption("left", strings.appearance.alignmentOptions.left)
+				.addOption("center", strings.appearance.alignmentOptions.center)
+				.addOption("right", strings.appearance.alignmentOptions.right)
 				.setValue(this.controller.settings.captions.alignment)
 				.onChange(async (value) => {
 					if (!isCaptionAlignment(value)) {
@@ -121,12 +142,12 @@ export class CaptionsSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(this.containerEl)
-			.setName("Font style")
-			.setDesc("Display generated captions using italic, normal, or bold text.")
+			.setName(strings.appearance.styleName)
+			.setDesc(strings.appearance.styleDesc)
 			.addDropdown((dropdown) => dropdown
-				.addOption("italic", "Italic")
-				.addOption("normal", "Normal")
-				.addOption("bold", "Bold")
+				.addOption("italic", strings.appearance.styleOptions.italic)
+				.addOption("normal", strings.appearance.styleOptions.normal)
+				.addOption("bold", strings.appearance.styleOptions.bold)
 				.setValue(this.controller.settings.captions.style)
 				.onChange(async (value) => {
 					if (!isCaptionStyle(value)) {
@@ -137,72 +158,60 @@ export class CaptionsSettingTab extends PluginSettingTab {
 					await this.saveAndRefresh();
 				}));
 
-		new Setting(this.containerEl)
-			.setName("Font size")
-			.setDesc("Set caption text size relative to the current Obsidian theme.")
-			.addSlider((slider) => {
-				slider.getValuePretty = () => `${slider.getValue()}%`;
-				slider
-					.setLimits(
-						CAPTION_FONT_SIZE_PERCENT_MIN,
-						CAPTION_FONT_SIZE_PERCENT_MAX,
-						CAPTION_FONT_SIZE_PERCENT_STEP,
-					)
-					.setValue(this.controller.settings.captions.fontSizePercent)
-					.setInstant(true)
-					.setDynamicTooltip()
-					.onChange((value) => {
-						this.controller.settings.captions.fontSizePercent = value;
-						this.scheduleAppearanceSaveAndRefresh();
-					});
-			});
+		const fontSizeSetting = new Setting(this.containerEl)
+			.setName(strings.appearance.fontSizeName)
+			.setDesc(strings.appearance.fontSizeDesc);
+		this.addNumericSlider(fontSizeSetting, {
+			value: this.controller.settings.captions.fontSizePercent,
+			min: CAPTION_FONT_SIZE_PERCENT_MIN,
+			max: CAPTION_FONT_SIZE_PERCENT_MAX,
+			step: CAPTION_FONT_SIZE_PERCENT_STEP,
+			unit: "%",
+			label: strings.appearance.fontSizeName,
+			onChange: (value) => {
+				this.controller.settings.captions.fontSizePercent = value;
+				this.scheduleAppearanceSaveAndRefresh();
+			},
+		});
+
+		const spacingAboveSetting = new Setting(this.containerEl)
+			.setName(strings.appearance.spacingAboveName)
+			.setDesc(strings.appearance.spacingAboveDesc);
+		this.addNumericSlider(spacingAboveSetting, {
+			value: this.controller.settings.captions.spacingAbovePx,
+			min: CAPTION_SPACING_PX_MIN,
+			max: CAPTION_SPACING_PX_MAX,
+			step: CAPTION_SPACING_PX_STEP,
+			unit: "px",
+			label: strings.appearance.spacingAboveName,
+			onChange: (value) => {
+				this.controller.settings.captions.spacingAbovePx = value;
+				this.scheduleAppearanceSaveAndRefresh();
+			},
+		});
+
+		const spacingBelowSetting = new Setting(this.containerEl)
+			.setName(strings.appearance.spacingBelowName)
+			.setDesc(strings.appearance.spacingBelowDesc);
+		this.addNumericSlider(spacingBelowSetting, {
+			value: this.controller.settings.captions.spacingBelowPx,
+			min: CAPTION_SPACING_PX_MIN,
+			max: CAPTION_SPACING_PX_MAX,
+			step: CAPTION_SPACING_PX_STEP,
+			unit: "px",
+			label: strings.appearance.spacingBelowName,
+			onChange: (value) => {
+				this.controller.settings.captions.spacingBelowPx = value;
+				this.scheduleAppearanceSaveAndRefresh();
+			},
+		});
 
 		new Setting(this.containerEl)
-			.setName("Spacing above")
-			.setDesc("Set the space before generated captions.")
-			.addSlider((slider) => {
-				slider.getValuePretty = () => `${slider.getValue()}px`;
-				slider
-					.setLimits(
-						CAPTION_SPACING_PX_MIN,
-						CAPTION_SPACING_PX_MAX,
-						CAPTION_SPACING_PX_STEP,
-					)
-					.setValue(this.controller.settings.captions.spacingAbovePx)
-					.setInstant(true)
-					.setDynamicTooltip()
-					.onChange((value) => {
-						this.controller.settings.captions.spacingAbovePx = value;
-						this.scheduleAppearanceSaveAndRefresh();
-					});
-			});
-
-		new Setting(this.containerEl)
-			.setName("Spacing below")
-			.setDesc("Set the space after generated captions.")
-			.addSlider((slider) => {
-				slider.getValuePretty = () => `${slider.getValue()}px`;
-				slider
-					.setLimits(
-						CAPTION_SPACING_PX_MIN,
-						CAPTION_SPACING_PX_MAX,
-						CAPTION_SPACING_PX_STEP,
-					)
-					.setValue(this.controller.settings.captions.spacingBelowPx)
-					.setInstant(true)
-					.setDynamicTooltip()
-					.onChange((value) => {
-						this.controller.settings.captions.spacingBelowPx = value;
-						this.scheduleAppearanceSaveAndRefresh();
-				});
-			});
-
-		new Setting(this.containerEl)
-			.setName("Figure caption position")
-			.setDesc("Place figure captions above or below images.")
+			.setName(strings.appearance.figurePositionName)
+			.setDesc(strings.appearance.figurePositionDesc)
 			.addDropdown((dropdown) => dropdown
-				.addOption("above", "Above")
-				.addOption("below", "Below")
+				.addOption("above", strings.appearance.positionOptions.above)
+				.addOption("below", strings.appearance.positionOptions.below)
 				.setValue(this.controller.settings.captions.figurePosition)
 				.onChange(async (value) => {
 					if (!isCaptionPosition(value)) {
@@ -214,11 +223,11 @@ export class CaptionsSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(this.containerEl)
-			.setName("Table caption position")
-			.setDesc("Place table captions above or below tables.")
+			.setName(strings.appearance.tablePositionName)
+			.setDesc(strings.appearance.tablePositionDesc)
 			.addDropdown((dropdown) => dropdown
-				.addOption("above", "Above")
-				.addOption("below", "Below")
+				.addOption("above", strings.appearance.positionOptions.above)
+				.addOption("below", strings.appearance.positionOptions.below)
 				.setValue(this.controller.settings.captions.tablePosition)
 				.onChange(async (value) => {
 					if (!isCaptionPosition(value)) {
@@ -229,13 +238,11 @@ export class CaptionsSettingTab extends PluginSettingTab {
 					await this.saveAndRefresh();
 				}));
 
-		new Setting(this.containerEl)
-			.setName("Caption behavior")
-			.setHeading();
+		this.addGroupHeading(strings.behavior.heading);
 
 		new Setting(this.containerEl)
-			.setName("Use file name as fallback")
-			.setDesc("Use the decoded image file name when an image has no explicit caption.")
+			.setName(strings.behavior.fileNameFallbackName)
+			.setDesc(strings.behavior.fileNameFallbackDesc)
 			.addToggle((toggle) => toggle
 				.setValue(this.controller.settings.captions.showFileNameAsCaption)
 				.onChange(async (value) => {
@@ -256,6 +263,85 @@ export class CaptionsSettingTab extends PluginSettingTab {
 		this.controller.settings.engines.pandocCrossref = engine === "pandocCrossref";
 		await this.saveAndRefresh();
 		this.display();
+	}
+
+	private addGroupHeading(name: string): void {
+		new Setting(this.containerEl)
+			.setName(name)
+			.setHeading();
+	}
+
+	private addNumericSlider(
+		setting: Setting,
+		options: NumericSliderOptions,
+	): void {
+		let currentValue = options.value;
+		let sliderComponent: SliderComponent | null = null;
+		let numberComponent: TextComponent | null = null;
+		const updateValue = (value: number): void => {
+			sliderComponent?.setValue(value);
+			numberComponent?.setValue(String(value));
+			if (value === currentValue) {
+				return;
+			}
+
+			currentValue = value;
+			options.onChange(value);
+		};
+
+		setting
+			.addSlider((slider) => {
+				sliderComponent = slider;
+				slider.getValuePretty = () => `${slider.getValue()}${options.unit}`;
+				slider
+					.setLimits(options.min, options.max, options.step)
+					.setValue(options.value)
+					.setInstant(true)
+					.setDynamicTooltip()
+					.onChange(updateValue);
+			})
+			.addText((text) => {
+				numberComponent = text;
+				text.setValue(String(options.value));
+				const inputEl = text.inputEl;
+				inputEl.type = "number";
+				inputEl.min = String(options.min);
+				inputEl.max = String(options.max);
+				inputEl.step = String(options.step);
+				inputEl.inputMode = "numeric";
+				inputEl.classList.add("captions-setting-number-input");
+				inputEl.setAttribute("aria-label", options.label);
+
+				const commitValue = (): void => {
+					updateValue(normalizeNumericSettingValue(
+						inputEl.value,
+						currentValue,
+						options.min,
+						options.max,
+						options.step,
+					));
+				};
+				inputEl.addEventListener("input", () => {
+					if (inputEl.value.length > 0 && inputEl.validity.valid) {
+						commitValue();
+					}
+				});
+				inputEl.addEventListener("change", commitValue);
+				inputEl.addEventListener("keydown", (event) => {
+					if (event.key !== "Enter") {
+						return;
+					}
+
+					event.preventDefault();
+					commitValue();
+					inputEl.blur();
+				});
+			});
+
+		const unitEl = setting.controlEl.ownerDocument.createElement("span");
+		unitEl.className = "captions-setting-number-unit";
+		unitEl.textContent = options.unit;
+		setting.controlEl.append(unitEl);
 	}
 
 	private saveAndRefresh(): Promise<void> {

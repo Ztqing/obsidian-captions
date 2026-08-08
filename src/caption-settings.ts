@@ -5,7 +5,7 @@ export type CaptionKind = "figure" | "table";
 
 export const CAPTION_FONT_SIZE_PERCENT_MIN = 50;
 export const CAPTION_FONT_SIZE_PERCENT_MAX = 200;
-export const CAPTION_FONT_SIZE_PERCENT_STEP = 5;
+export const CAPTION_FONT_SIZE_PERCENT_STEP = 1;
 export const CAPTION_SPACING_PX_MIN = 0;
 export const CAPTION_SPACING_PX_MAX = 32;
 export const CAPTION_SPACING_PX_STEP = 1;
@@ -38,8 +38,8 @@ export const DEFAULT_CAPTION_APPEARANCE: Readonly<CaptionAppearanceSettings> = {
 	alignment: "center",
 	style: "bold",
 	fontSizePercent: 85,
-	spacingAbovePx: 8,
-	spacingBelowPx: 8,
+	spacingAbovePx: 12,
+	spacingBelowPx: 12,
 	figurePosition: "below",
 	tablePosition: "above",
 };

@@ -2,7 +2,7 @@
 
 An Obsidian plugin for previewing image and table captions and cross-references.
 
-## 0.0.7
+## 0.0.8
 
 This release contains three syntax-specific engines:
 
@@ -12,9 +12,9 @@ This release contains three syntax-specific engines:
 
 Open **Settings > Captions** to configure them. Wiki image captions have an independent toggle. Standard Markdown images and tables use one mutually exclusive engine: `None`, `Pandoc and pandoc-crossref`, or `Quarto`. Pandoc remains the default for compatibility. Switching engines immediately removes the previous engine's Reading view output and Live Preview decorations without changing the Markdown source or restarting Obsidian.
 
-Settings are grouped into **Caption labels**, **Caption appearance**, and **Caption behavior**. Figure and table labels are shared by Pandoc and Quarto captions and references. Alignment, font style, relative font size, spacing, and figure/table caption positions apply to every caption created by this plugin in Reading view and Live Preview. Font size ranges from 50% to 200% of the current theme text size and defaults to 85%; spacing ranges from 0px to 32px and defaults to 8px above and below. Font style defaults to bold. Figure captions default below images; table captions default above tables. File-name fallback remains a shared caption behavior. Existing settings from `0.0.2` through `0.0.6` are validated and migrated without changing their stored keys.
+Settings follow Obsidian's configured language and currently include English and Simplified Chinese. Numeric appearance settings keep their current value visible beside the slider and also provide a keyboard-editable number field; font size accepts 1% increments from 50% to 200%, while spacing accepts 1px increments from 0px to 32px. Figure and table labels are shared by Pandoc and Quarto captions and references. Alignment, font style, relative font size, spacing, and figure/table caption positions apply to every caption created by this plugin in Reading view and Live Preview. Font size defaults to 85%; spacing defaults to 12px above and below. Font style defaults to bold. Figure captions default below images; table captions default above tables. File-name fallback remains a shared caption behavior. Existing settings from `0.0.2` through `0.0.7` are validated and migrated without changing their stored keys.
 
-Version `0.0.7` fixes Live Preview initialization for the Pandoc and Quarto engines.
+Version `0.0.8` adds localized settings and precise numeric appearance controls.
 
 ### Wiki images
 
@@ -109,7 +109,7 @@ See @tbl-results.
 
 Quarto figures and tables use independent counters starting from 1 in each note and use the same customizable labels as Pandoc. The Quarto engine does not interpret Pandoc `fig:` or `tbl:` identifiers as crossrefs.
 
-Version `0.0.7` supports standalone standard Markdown images, pipe tables, direct bare Quarto references, and shared caption labels, appearance, and behavior. Cross-note references, chapter numbering, subfigures, executable-cell labels, and complex reference groups are not yet supported.
+Version `0.0.8` supports standalone standard Markdown images, pipe tables, direct bare Quarto references, and shared caption labels, appearance, and behavior. Cross-note references, chapter numbering, subfigures, executable-cell labels, and complex reference groups are not yet supported.
 
 Wiki image behavior is based on [bcs1037/wk-image-caption](https://github.com/bcs1037/wk-image-caption). Pandoc-crossref syntax follows [pandoc-crossref](https://lierdakil.github.io/pandoc-crossref/). Quarto cross-reference syntax follows the [Quarto cross-references guide](https://quarto.org/docs/authoring/cross-references.html).
 

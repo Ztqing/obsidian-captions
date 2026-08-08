@@ -4,6 +4,17 @@
 	line-height: 1.4;
 }
 
+.captions-setting-number-input {
+	flex: 0 0 5.5em;
+	width: 5.5em;
+	text-align: end;
+}
+
+.captions-setting-number-unit {
+	color: var(--text-muted);
+	margin-inline-start: var(--size-2-1);
+}
+
 .captions-caption--left {
 	text-align: left;
 }
@@ -33,8 +44,8 @@
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin-block-start: var(--captions-caption-space-above, 8px);
-	margin-block-end: var(--captions-caption-space-below, 8px);
+	margin-block-start: var(--captions-caption-space-above, 12px);
+	margin-block-end: var(--captions-caption-space-below, 12px);
 	clear: both;
 }
 
@@ -69,14 +80,14 @@
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	margin-block-start: var(--captions-caption-space-above, 8px);
-	margin-block-end: var(--captions-caption-space-below, 8px);
+	margin-block-start: var(--captions-caption-space-above, 12px);
+	margin-block-end: var(--captions-caption-space-below, 12px);
 }
 
 .captions-pandoc-table-caption,
 .captions-quarto-table-caption {
-	padding-block-start: var(--captions-caption-space-above, 8px);
-	padding-block-end: var(--captions-caption-space-below, 8px);
+	padding-block-start: var(--captions-caption-space-above, 12px);
+	padding-block-end: var(--captions-caption-space-below, 12px);
 }
 
 .captions-caption--table-above {

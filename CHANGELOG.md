@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.8
+
+- Localize the settings UI to follow Obsidian's language, with English and Simplified Chinese translations.
+- Keep numeric values visible beside their sliders and allow precise keyboard entry with range and step validation.
+- Change font-size controls to 1% increments so typed values are preserved instead of rounded to 5% increments.
+- Set the default spacing above and below captions to 12px.
+
 ## 0.0.7
 
 - Fix Live Preview initialization by providing Pandoc and Quarto block decorations from CodeMirror state fields.

@@ -19,8 +19,8 @@ void test("enables Wiki and selects Pandoc by default", () => {
 			alignment: "center",
 			style: "bold",
 			fontSizePercent: 85,
-			spacingAbovePx: 8,
-			spacingBelowPx: 8,
+			spacingAbovePx: 12,
+			spacingBelowPx: 12,
 			figurePosition: "below",
 			tablePosition: "above",
 			showFileNameAsCaption: false,
@@ -53,8 +53,8 @@ void test("migrates 0.0.2 settings with both engines enabled", () => {
 		alignment: "left",
 		style: "normal",
 		fontSizePercent: 85,
-		spacingAbovePx: 8,
-		spacingBelowPx: 8,
+		spacingAbovePx: 12,
+		spacingBelowPx: 12,
 		figurePosition: "below",
 		tablePosition: "above",
 	});
@@ -104,8 +104,8 @@ void test("migrates labels from the selected 0.0.4 standard engine", () => {
 		alignment: "center",
 		style: "italic",
 		fontSizePercent: 85,
-		spacingAbovePx: 8,
-		spacingBelowPx: 8,
+		spacingAbovePx: 12,
+		spacingBelowPx: 12,
 		figurePosition: "below",
 		tablePosition: "above",
 	});
@@ -142,8 +142,8 @@ void test("prefers and validates the 0.0.5 captions object", () => {
 		alignment: "right",
 		style: "normal",
 		fontSizePercent: 85,
-		spacingAbovePx: 8,
-		spacingBelowPx: 8,
+		spacingAbovePx: 12,
+		spacingBelowPx: 12,
 		figurePosition: "below",
 		tablePosition: "above",
 	});
@@ -157,7 +157,7 @@ void test("validates and quantizes 0.0.6 appearance values", () => {
 			showFileNameAsCaption: false,
 			alignment: "center",
 			style: "italic",
-			fontSizePercent: 112,
+			fontSizePercent: 112.4,
 			spacingAbovePx: 6.4,
 			spacingBelowPx: 8.7,
 			figurePosition: "above",
@@ -165,7 +165,7 @@ void test("validates and quantizes 0.0.6 appearance values", () => {
 		},
 	});
 
-	assert.equal(settings.captions.fontSizePercent, 110);
+	assert.equal(settings.captions.fontSizePercent, 112);
 	assert.equal(settings.captions.spacingAbovePx, 6);
 	assert.equal(settings.captions.spacingBelowPx, 9);
 	assert.equal(settings.captions.figurePosition, "above");
@@ -219,8 +219,8 @@ void test("normalizes missing and invalid persisted engine values", () => {
 			alignment: "right",
 			style: "bold",
 			fontSizePercent: 85,
-			spacingAbovePx: 8,
-			spacingBelowPx: 8,
+			spacingAbovePx: 12,
+			spacingBelowPx: 12,
 			figurePosition: "below",
 			tablePosition: "above",
 		},

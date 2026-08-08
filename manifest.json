@@ -1,7 +1,7 @@
 {
 	"id": "captions",
 	"name": "Captions",
-	"version": "0.0.7",
+	"version": "0.0.8",
 	"minAppVersion": "1.10.3",
 	"description": "Display captions for figures and tables.",
 	"author": "Ztqing",
