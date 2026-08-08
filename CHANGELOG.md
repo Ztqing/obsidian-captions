@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.7
+
+- Fix Live Preview initialization by providing Pandoc and Quarto block decorations from CodeMirror state fields.
+- Refresh Live Preview captions when the document, selection, editor mode, or extension configuration changes.
+- Preserve existing caption spacing controls, settings data, mobile support, and the Obsidian 1.10.3 baseline.
+
 ## 0.0.6
 
 - Add shared caption font-size and spacing controls for Wiki, Pandoc, and Quarto captions.

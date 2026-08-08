@@ -1,5 +1,10 @@
 import type { Extension } from "@codemirror/state";
-import { type App, type MarkdownPostProcessorContext, TFile } from "obsidian";
+import {
+	editorLivePreviewField,
+	type App,
+	type MarkdownPostProcessorContext,
+	TFile,
+} from "obsidian";
 
 import type { CaptionEngine } from "../../engine-manager";
 import { createQuartoEditorExtension } from "./live-preview";
@@ -34,7 +39,10 @@ export class QuartoEngine implements CaptionEngine {
 	}
 
 	createEditorExtension(): Extension {
-		return createQuartoEditorExtension(this.getSettings);
+		return createQuartoEditorExtension(
+			this.getSettings,
+			editorLivePreviewField,
+		);
 	}
 
 	attachReadingSection(

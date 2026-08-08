@@ -1,6 +1,6 @@
 {
 	"name": "captions",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"description": "Display captions for figures and tables in Obsidian.",
 	"main": "main.js",
 	"type": "module",
@@ -33,6 +33,7 @@
 		"typescript-eslint": "8.35.1"
 	},
 	"dependencies": {
+		"@codemirror/state": "6.5.0",
 		"@codemirror/view": "^6.38.6",
 		"obsidian": "1.10.3"
 	}

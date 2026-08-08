@@ -1,14 +1,16 @@
-import type { Extension, Range } from "@codemirror/state";
+import {
+	type EditorState,
+	type Extension,
+	type Range,
+	StateField,
+	type Transaction,
+} from "@codemirror/state";
 import {
 	Decoration,
 	type DecorationSet,
-	type EditorView,
-	type PluginValue,
-	type ViewUpdate,
-	ViewPlugin,
+	EditorView,
 	WidgetType,
 } from "@codemirror/view";
-import { editorLivePreviewField } from "obsidian";
 import {
 	applyCaptionAppearance,
 	getCaptionAppearance,
@@ -32,28 +34,26 @@ type SettingsProvider = () => QuartoSettings;
 
 export function createQuartoEditorExtension(
 	getSettings: SettingsProvider,
+	livePreviewField: StateField<boolean>,
 ): Extension {
-	return ViewPlugin.define(
-		(view) => new QuartoViewPlugin(view, getSettings),
-		{ decorations: (plugin) => plugin.decorations },
-	);
-}
-
-class QuartoViewPlugin implements PluginValue {
-	decorations: DecorationSet;
-
-	constructor(
-		private readonly view: EditorView,
-		private readonly getSettings: SettingsProvider,
-	) {
-		this.decorations = buildDecorations(view, getSettings());
-	}
-
-	update(update: ViewUpdate): void {
-		if (update.docChanged || update.selectionSet || update.viewportChanged) {
-			this.decorations = buildDecorations(update.view, this.getSettings());
-		}
-	}
+	return StateField.define<DecorationSet>({
+		create: (state) => buildDecorations(
+			state,
+			getSettings(),
+			livePreviewField,
+		),
+		update: (decorations, transaction) => shouldRebuildDecorations(
+			transaction,
+			livePreviewField,
+		)
+			? buildDecorations(
+				transaction.state,
+				getSettings(),
+				livePreviewField,
+			)
+			: decorations,
+		provide: (field) => EditorView.decorations.from(field),
+	});
 }
 
 class QuartoCaptionWidget extends WidgetType {
@@ -160,14 +160,15 @@ class QuartoReferenceWidget extends WidgetType {
 }
 
 function buildDecorations(
-	view: EditorView,
+	state: EditorState,
 	settings: QuartoSettings,
+	livePreviewField: StateField<boolean>,
 ): DecorationSet {
-	if (view.state.field(editorLivePreviewField, false) !== true) {
+	if (state.field(livePreviewField, false) !== true) {
 		return Decoration.none;
 	}
 
-	const document = parseQuartoDocument(view.state.doc.toString());
+	const document = parseQuartoDocument(state.doc.toString());
 	const targetsById = new Map<string, QuartoCrossrefCaptionTarget>();
 	const ranges: Array<Range<Decoration>> = [];
 
@@ -190,7 +191,7 @@ function buildDecorations(
 		if (
 			target.markerFrom !== null
 			&& target.markerTo !== null
-			&& selectionOverlaps(view, target.markerFrom, target.markerTo)
+			&& selectionOverlaps(state, target.markerFrom, target.markerTo)
 		) {
 			continue;
 		}
@@ -204,7 +205,7 @@ function buildDecorations(
 			}
 		} else {
 			if (target.markerFrom !== null && target.markerTo !== null) {
-				const hiddenLineTo = target.markerTo < view.state.doc.length
+				const hiddenLineTo = target.markerTo < state.doc.length
 					? target.markerTo + 1
 					: target.markerTo;
 				ranges.push(Decoration.replace({ block: true }).range(
@@ -228,7 +229,7 @@ function buildDecorations(
 		const target = targetsById.get(reference.id);
 		if (
 			target === undefined
-			|| selectionOverlaps(view, reference.from, reference.to)
+			|| selectionOverlaps(state, reference.from, reference.to)
 		) {
 			continue;
 		}
@@ -240,7 +241,18 @@ function buildDecorations(
 	return Decoration.set(ranges, true);
 }
 
-function selectionOverlaps(view: EditorView, from: number, to: number): boolean {
-	return view.state.selection.ranges.some((range) =>
+function shouldRebuildDecorations(
+	transaction: Transaction,
+	livePreviewField: StateField<boolean>,
+): boolean {
+	return transaction.docChanged
+		|| transaction.selection !== undefined
+		|| transaction.reconfigured
+		|| transaction.startState.field(livePreviewField, false)
+			!== transaction.state.field(livePreviewField, false);
+}
+
+function selectionOverlaps(state: EditorState, from: number, to: number): boolean {
+	return state.selection.ranges.some((range) =>
 		range.from <= to && range.to >= from);
 }

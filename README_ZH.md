@@ -2,7 +2,7 @@
 
 一个用于在 Obsidian 中预览图片、表格题注和交叉引用的插件。
 
-## 0.0.6
+## 0.0.7
 
 当前版本包含三个相互独立的语法引擎：
 
@@ -12,7 +12,9 @@
 
 可以在 **设置 > Captions** 中进行配置。Wiki 图片题注使用独立开关；标准 Markdown 图片和表格使用互斥的 `None`、`Pandoc and pandoc-crossref` 或 `Quarto` 选项。为保持兼容，默认选择 Pandoc。切换后会立即移除旧引擎在阅读模式中的渲染结果和实时预览装饰，不会修改 Markdown 源文档，也不需要重启 Obsidian。
 
-设置分为 **Caption labels（题注标签）**、**Caption appearance（题注外观）** 和 **Caption behavior（题注行为）**。Pandoc 与 Quarto 共用图片和表格标签；对齐、字体样式、相对字号、上下间距以及图表题注位置同时作用于阅读模式与实时预览中由本插件生成的全部题注。字号范围为当前主题文字大小的 50% 至 200%，默认 85%；上下间距范围为 0px 至 32px，默认上方和下方均为 8px。字体样式默认为粗体。图片题注默认位于图片下方，表格题注默认位于表格上方。文件名兜底继续作为共享题注行为。已有 `0.0.2` 至 `0.0.5` 设置会经过校验后迁移，并保持原有持久化 key 不变。
+设置分为 **Caption labels（题注标签）**、**Caption appearance（题注外观）** 和 **Caption behavior（题注行为）**。Pandoc 与 Quarto 共用图片和表格标签；对齐、字体样式、相对字号、上下间距以及图表题注位置同时作用于阅读模式与实时预览中由本插件生成的全部题注。字号范围为当前主题文字大小的 50% 至 200%，默认 85%；上下间距范围为 0px 至 32px，默认上方和下方均为 8px。字体样式默认为粗体。图片题注默认位于图片下方，表格题注默认位于表格上方。文件名兜底继续作为共享题注行为。已有 `0.0.2` 至 `0.0.6` 设置会经过校验后迁移，并保持原有持久化 key 不变。
+
+`0.0.7` 修复了 Pandoc 与 Quarto 引擎无法进入实时预览的问题。
 
 ### Wiki 图片
 
@@ -107,7 +109,7 @@ Quarto pipe table 的题注可以位于表格之前或之后：
 
 Quarto 图片和表格分别从 1 开始编号，并与 Pandoc 共用可自定义标签。Quarto 引擎不会把 Pandoc 的 `fig:`、`tbl:` ID 解释为 crossref。
 
-`0.0.6` 支持独占一行的标准 Markdown 图片、pipe table、直接裸 Quarto 引用，以及统一的题注标签、外观和行为设置。暂不支持跨笔记引用、章节编号、子图、可执行单元格标签和复杂引用组。
+`0.0.7` 支持独占一行的标准 Markdown 图片、pipe table、直接裸 Quarto 引用，以及统一的题注标签、外观和行为设置。暂不支持跨笔记引用、章节编号、子图、可执行单元格标签和复杂引用组。
 
 Wiki 图片题注行为参考 [bcs1037/wk-image-caption](https://github.com/bcs1037/wk-image-caption)。Pandoc-crossref 语法参考 [pandoc-crossref](https://lierdakil.github.io/pandoc-crossref/)。Quarto 交叉引用语法参考 [Quarto cross-references 文档](https://quarto.org/docs/authoring/cross-references.html)。
 
