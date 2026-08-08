@@ -1,8 +1,8 @@
-# Captions
-
-[English](README.md)
-
-一个用于在 Obsidian 阅读模式和实时预览中显示本地图片与 pipe table 题注的插件。
+<div align="center">
+  <h1>Captions</h1>
+  <p><strong>一个用于在 Obsidian 阅读模式和实时预览中显示本地图片与 pipe table 题注的插件。</strong></p>
+  <p><a href="README.md">English</a> | 中文 | <a href="CHANGELOG.md">更新日志</a></p>
+</div>
 
 ## 支持的语法
 
@@ -80,6 +80,6 @@ npm run release:check
 
 发布资产为 `main.js`、`manifest.json` 和 `styles.css`。`main.js` 由本地或 CI 构建生成，不纳入 Git 跟踪。
 
-## 更新日志
+## 致谢
 
-完整的英文发布历史请参阅 [CHANGELOG.md](CHANGELOG.md)。
+感谢 [wk-image-caption](https://github.com/bcs1037/wk-image-caption) 项目提供的前期实践与启发。

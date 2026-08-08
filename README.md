@@ -1,8 +1,8 @@
-# Captions
-
-[简体中文](README_ZH.md)
-
-An Obsidian plugin for previewing local image and pipe-table captions in Reading view and Live Preview.
+<div align="center">
+  <h1>Captions</h1>
+  <p><strong>An Obsidian plugin for previewing local image and pipe-table captions in Reading view and Live Preview.</strong></p>
+  <p>English | <a href="README_ZH.md">中文</a> | <a href="CHANGELOG.md">Changelog</a></p>
+</div>
 
 ## Supported syntax
 
@@ -80,6 +80,6 @@ npm run release:check
 
 Release assets are `main.js`, `manifest.json`, and `styles.css`. `main.js` is generated locally or in CI and is not tracked by Git.
 
-## Changelog
+## Acknowledgements
 
-See [CHANGELOG.md](CHANGELOG.md) for the complete English release history.
+Thanks to [wk-image-caption](https://github.com/bcs1037/wk-image-caption) for its prior work and inspiration.
