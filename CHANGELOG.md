@@ -8,6 +8,7 @@ All notable user-facing changes to Captions are documented here. This English ch
 
 - Automatically detect supported Wiki images, standalone Markdown images, and pipe-table captions without requiring syntax-engine selection.
 - Use consistent caption text and appearance across supported image syntax in Reading view and Live Preview.
+- Use direct numeric inputs for caption font size and unified spacing, with default values shown as placeholders when the fields are empty.
 - Improve responsiveness when captions update in larger or frequently edited notes.
 - Preserve table captions before or after pipe tables while leaving cross-reference-looking text unchanged.
 

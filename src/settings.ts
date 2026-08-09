@@ -4,8 +4,6 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
-	type SliderComponent,
-	type TextComponent,
 } from "obsidian";
 
 import {
@@ -15,11 +13,15 @@ import {
 	CAPTION_SPACING_PX_MAX,
 	CAPTION_SPACING_PX_MIN,
 	CAPTION_SPACING_PX_STEP,
+	DEFAULT_CAPTION_APPEARANCE,
 	type CaptionAlignment,
 	type CaptionPosition,
 	type CaptionStyle,
 } from "./caption-settings";
-import { normalizeNumericSettingValue } from "./settings-controls";
+import {
+	formatCommittedNumericSettingInputValue,
+	normalizeNumericSettingValue,
+} from "./settings-controls";
 import type { CaptionsPluginSettings } from "./settings-data";
 import { getSettingsStrings } from "./settings-i18n";
 
@@ -31,13 +33,14 @@ interface SettingsController {
 	saveSettings(): Promise<void>;
 }
 
-interface NumericSliderOptions {
+interface NumericControlOptions {
 	value: number;
 	min: number;
 	max: number;
 	step: number;
 	unit: string;
 	label: string;
+	defaultValue: number;
 	onChange(value: number): void;
 }
 
@@ -96,46 +99,33 @@ export class CaptionsSettingTab extends PluginSettingTab {
 		const fontSizeSetting = new Setting(this.containerEl)
 			.setName(strings.appearance.fontSizeName)
 			.setDesc(strings.appearance.fontSizeDesc);
-		this.addNumericSlider(fontSizeSetting, {
+		this.addNumericInput(fontSizeSetting, {
 			value: this.controller.settings.captions.fontSizePercent,
 			min: CAPTION_FONT_SIZE_PERCENT_MIN,
 			max: CAPTION_FONT_SIZE_PERCENT_MAX,
 			step: CAPTION_FONT_SIZE_PERCENT_STEP,
 			unit: "%",
 			label: strings.appearance.fontSizeName,
+			defaultValue: DEFAULT_CAPTION_APPEARANCE.fontSizePercent,
 			onChange: (value) => {
 				this.controller.settings.captions.fontSizePercent = value;
 				this.scheduleAppearanceSaveAndRefresh();
 			},
 		});
 
-		const spacingAboveSetting = new Setting(this.containerEl)
-			.setName(strings.appearance.spacingAboveName)
-			.setDesc(strings.appearance.spacingAboveDesc);
-		this.addNumericSlider(spacingAboveSetting, {
+		const spacingSetting = new Setting(this.containerEl)
+			.setName(strings.appearance.spacingName)
+			.setDesc(strings.appearance.spacingDesc);
+		this.addNumericInput(spacingSetting, {
 			value: this.controller.settings.captions.spacingAbovePx,
 			min: CAPTION_SPACING_PX_MIN,
 			max: CAPTION_SPACING_PX_MAX,
 			step: CAPTION_SPACING_PX_STEP,
 			unit: "px",
-			label: strings.appearance.spacingAboveName,
+			label: strings.appearance.spacingName,
+			defaultValue: DEFAULT_CAPTION_APPEARANCE.spacingAbovePx,
 			onChange: (value) => {
 				this.controller.settings.captions.spacingAbovePx = value;
-				this.scheduleAppearanceSaveAndRefresh();
-			},
-		});
-
-		const spacingBelowSetting = new Setting(this.containerEl)
-			.setName(strings.appearance.spacingBelowName)
-			.setDesc(strings.appearance.spacingBelowDesc);
-		this.addNumericSlider(spacingBelowSetting, {
-			value: this.controller.settings.captions.spacingBelowPx,
-			min: CAPTION_SPACING_PX_MIN,
-			max: CAPTION_SPACING_PX_MAX,
-			step: CAPTION_SPACING_PX_STEP,
-			unit: "px",
-			label: strings.appearance.spacingBelowName,
-			onChange: (value) => {
 				this.controller.settings.captions.spacingBelowPx = value;
 				this.scheduleAppearanceSaveAndRefresh();
 			},
@@ -197,16 +187,12 @@ export class CaptionsSettingTab extends PluginSettingTab {
 			.setHeading();
 	}
 
-	private addNumericSlider(
+	private addNumericInput(
 		setting: Setting,
-		options: NumericSliderOptions,
+		options: NumericControlOptions,
 	): void {
 		let currentValue = options.value;
-		let sliderComponent: SliderComponent | null = null;
-		let numberComponent: TextComponent | null = null;
 		const updateValue = (value: number): void => {
-			sliderComponent?.setValue(value);
-			numberComponent?.setValue(String(value));
 			if (value === currentValue) {
 				return;
 			}
@@ -215,54 +201,57 @@ export class CaptionsSettingTab extends PluginSettingTab {
 			options.onChange(value);
 		};
 
-		setting
-			.addSlider((slider) => {
-				sliderComponent = slider;
-				slider.getValuePretty = () => `${slider.getValue()}${options.unit}`;
-				slider
-					.setLimits(options.min, options.max, options.step)
-					.setValue(options.value)
-					.setInstant(true)
-					.setDynamicTooltip()
-					.onChange(updateValue);
-			})
-			.addText((text) => {
-				numberComponent = text;
-				text.setValue(String(options.value));
-				const inputEl = text.inputEl;
-				inputEl.type = "number";
-				inputEl.min = String(options.min);
-				inputEl.max = String(options.max);
-				inputEl.step = String(options.step);
-				inputEl.inputMode = "numeric";
-				inputEl.classList.add("captions-setting-number-input");
-				inputEl.setAttribute("aria-label", options.label);
+		setting.addText((text) => {
+			text.setValue(String(options.value));
+			const inputEl = text.inputEl;
+			inputEl.type = "number";
+			inputEl.min = String(options.min);
+			inputEl.max = String(options.max);
+			inputEl.step = String(options.step);
+			inputEl.inputMode = "numeric";
+			inputEl.classList.add("captions-setting-number-input");
+			inputEl.setAttribute("aria-label", options.label);
+			inputEl.placeholder = String(options.defaultValue);
 
-				const commitValue = (): void => {
+			const commitValue = (): void => {
+				const rawValue = inputEl.value;
+				const value = normalizeNumericSettingValue(
+					rawValue,
+					currentValue,
+					options.min,
+					options.max,
+					options.step,
+					options.defaultValue,
+				);
+				text.setValue(formatCommittedNumericSettingInputValue(
+					rawValue,
+					value,
+				));
+				updateValue(value);
+			};
+			inputEl.addEventListener("input", () => {
+				if (inputEl.value.length > 0 && inputEl.validity.valid) {
 					updateValue(normalizeNumericSettingValue(
 						inputEl.value,
 						currentValue,
 						options.min,
 						options.max,
 						options.step,
+						options.defaultValue,
 					));
-				};
-				inputEl.addEventListener("input", () => {
-					if (inputEl.value.length > 0 && inputEl.validity.valid) {
-						commitValue();
-					}
-				});
-				inputEl.addEventListener("change", commitValue);
-				inputEl.addEventListener("keydown", (event) => {
-					if (event.key !== "Enter") {
-						return;
-					}
-
-					event.preventDefault();
-					commitValue();
-					inputEl.blur();
-				});
+				}
 			});
+			inputEl.addEventListener("change", commitValue);
+			inputEl.addEventListener("keydown", (event) => {
+				if (event.key !== "Enter") {
+					return;
+				}
+
+				event.preventDefault();
+				commitValue();
+				inputEl.blur();
+			});
+		});
 
 		const unitEl = setting.controlEl.ownerDocument.createElement("span");
 		unitEl.className = "captions-setting-number-unit";

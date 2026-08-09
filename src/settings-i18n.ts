@@ -11,10 +11,8 @@ export interface SettingsStrings {
 		styleOptions: { italic: string; normal: string; bold: string };
 		fontSizeName: string;
 		fontSizeDesc: string;
-		spacingAboveName: string;
-		spacingAboveDesc: string;
-		spacingBelowName: string;
-		spacingBelowDesc: string;
+		spacingName: string;
+		spacingDesc: string;
 		figurePositionName: string;
 		figurePositionDesc: string;
 		tablePositionName: string;
@@ -40,10 +38,8 @@ const SETTINGS_TRANSLATIONS: Record<SettingsLocale, SettingsStrings> = {
 			styleOptions: { italic: "Italic", normal: "Normal", bold: "Bold" },
 			fontSizeName: "Font size",
 			fontSizeDesc: "Set caption text size relative to the current Obsidian theme.",
-			spacingAboveName: "Spacing above",
-			spacingAboveDesc: "Set the space before generated captions.",
-			spacingBelowName: "Spacing below",
-			spacingBelowDesc: "Set the space after generated captions.",
+			spacingName: "Caption spacing",
+			spacingDesc: "Set the space above and below generated captions.",
 			figurePositionName: "Figure caption position",
 			figurePositionDesc: "Place figure captions above or below images.",
 			tablePositionName: "Table caption position",
@@ -67,10 +63,8 @@ const SETTINGS_TRANSLATIONS: Record<SettingsLocale, SettingsStrings> = {
 			styleOptions: { italic: "斜体", normal: "常规", bold: "粗体" },
 			fontSizeName: "字号",
 			fontSizeDesc: "设置相对于当前 Obsidian 主题的题注文字大小。",
-			spacingAboveName: "上方间距",
-			spacingAboveDesc: "设置生成的题注上方的间距。",
-			spacingBelowName: "下方间距",
-			spacingBelowDesc: "设置生成的题注下方的间距。",
+			spacingName: "上下间距",
+			spacingDesc: "设置生成的题注上下间距。",
 			figurePositionName: "图片题注位置",
 			figurePositionDesc: "将图片题注置于图片上方或下方。",
 			tablePositionName: "表格题注位置",

@@ -4,9 +4,10 @@ export function normalizeNumericSettingValue(
 	min: number,
 	max: number,
 	step: number,
+	defaultValue = fallback,
 ): number {
 	if (rawValue.trim().length === 0) {
-		return fallback;
+		return defaultValue;
 	}
 
 	const parsedValue = Number(rawValue);
@@ -17,4 +18,11 @@ export function normalizeNumericSettingValue(
 	const clampedValue = Math.min(max, Math.max(min, parsedValue));
 	const stepsFromMinimum = Math.round((clampedValue - min) / step);
 	return Math.min(max, min + stepsFromMinimum * step);
+}
+
+export function formatCommittedNumericSettingInputValue(
+	rawValue: string,
+	value: number,
+): string {
+	return rawValue.trim().length === 0 ? "" : String(value);
 }

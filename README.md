@@ -54,7 +54,7 @@ Table: Model results
 
 ## Settings and behavior
 
-The settings page provides shared alignment, font style, relative font size, spacing, figure/table positions, and an optional file-name fallback. Settings follow Obsidian's configured language in English and Simplified Chinese.
+The settings page provides shared alignment, font style, relative font size, spacing, figure/table positions, and an optional file-name fallback. Font size and caption spacing use direct numeric entry, with their 85% and 12px defaults shown as placeholders. Clearing either field uses its default; caption spacing applies above and below captions. Settings follow Obsidian's configured language in English and Simplified Chinese.
 
 Captions are rendered locally without changing note source. Reading view and Live Preview use the same caption rules and appearance. Source mode, ordinary links, inline Markdown images, unmatched tables, and cross-reference-looking text remain unchanged.
 
