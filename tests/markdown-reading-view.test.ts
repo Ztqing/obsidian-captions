@@ -36,7 +36,7 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	const model = parseCaptionDocument(source);
 	const { document } = parseHTML([
 		'<div id="figure"><p><img src="architecture.png" alt="Architecture">{#fig:architecture}</p></div>',
-		'<div id="table"><table><tbody><tr><td>A</td><td>92%</td></tr></tbody></table></div>',
+		'<div id="table" class="el-table"><table><tbody><tr><td>A</td><td>92%</td></tr></tbody></table></div>',
 		'<div id="caption"><p>: Model results {#tbl:results}</p></div>',
 		'<div id="reference"><p>See [@fig:architecture] and @tbl-results.</p></div>',
 	].join(""));
@@ -58,6 +58,8 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	assert.equal(reference.textContent, "See [@fig:architecture] and @tbl-results.");
 	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
 	assert.equal(document.querySelectorAll(".captions-table-caption").length, 1);
+	assert.equal(table.classList.contains("captions-table"), true);
+	assert.equal(requireElement(document, "table").classList.contains("captions-table"), false);
 
 	renderCaptionReadingSections([
 		{ root: figure, lineStart: 0, lineEnd: 0 },
@@ -68,12 +70,15 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
 	assert.equal(requireElement(document, "#figure > p").firstElementChild?.classList.contains("captions-figure-caption"), true);
 	assert.equal(requireElement(document, "table").lastElementChild?.tagName, "CAPTION");
+	assert.equal(document.querySelectorAll(".captions-table").length, 1);
 
 	for (const root of [figure, table, caption, reference]) {
 		cleanupCaptionReadingView(root);
 	}
 	assert.equal(document.querySelector(".captions-figure-caption"), null);
 	assert.equal(document.querySelector("table > caption"), null);
+	assert.equal(table.classList.contains("captions-table"), false);
+	assert.equal(requireElement(document, "table").classList.contains("captions-table"), false);
 	assert.equal(caption.textContent, ": Model results {#tbl:results}");
 });
 

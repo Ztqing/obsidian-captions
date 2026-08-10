@@ -12,6 +12,10 @@ All notable user-facing changes to Captions are documented here. This English ch
 - Improve responsiveness when captions update in larger or frequently edited notes.
 - Preserve table captions before or after pipe tables while leaving cross-reference-looking text unchanged.
 
+### Fixes
+
+- Keep captioned tables at normal paragraph spacing in Reading view instead of leaving an oversized gap beside their captions.
+
 ### Breaking Changes
 
 - Remove cross-reference previews, automatic numbering, generated anchors, syntax-engine switches, and numbered-label settings. Notes remain unchanged, but these features are no longer rendered by Captions.

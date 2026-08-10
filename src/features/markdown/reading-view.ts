@@ -253,7 +253,7 @@ function renderTable(
 			target.caption,
 		);
 
-	table.classList.add(TABLE_CONTAINER_CLASS);
+	table.closest<HTMLElement>(".el-table")?.classList.add(TABLE_CONTAINER_CLASS);
 	let caption = findDirectTableCaption(table, target.key);
 	if (caption === null) {
 		caption = table.ownerDocument.createElement("caption");

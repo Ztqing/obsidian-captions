@@ -51,8 +51,17 @@
 }
 
 .captions-table-caption {
-	padding-block-start: var(--captions-caption-space-above, 12px);
-	padding-block-end: var(--captions-caption-space-below, 12px);
+	padding-block: 0;
+}
+
+.markdown-rendered .el-table.captions-table {
+	margin-block-start: var(--p-spacing);
+	margin-block-end: var(--p-spacing);
+}
+
+.markdown-rendered .el-table.captions-table > table {
+	margin-block-start: 0;
+	margin-block-end: 0;
 }
 
 .captions-caption--table-above {
@@ -61,6 +70,14 @@
 
 .captions-caption--table-below {
 	caption-side: bottom;
+}
+
+.captions-table-caption.captions-caption--table-above {
+	padding-block-end: var(--captions-caption-space-below, 12px);
+}
+
+.captions-table-caption.captions-caption--table-below {
+	padding-block-start: var(--captions-caption-space-above, 12px);
 }
 
 .captions-source-marker,
