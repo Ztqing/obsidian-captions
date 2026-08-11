@@ -15,7 +15,7 @@ void test("manifest exposes a cross-platform Obsidian plugin", () => {
 	) as PluginManifest;
 
 	assert.equal(manifest.id, "captions");
-	assert.equal(manifest.version, "0.0.9");
+	assert.equal(manifest.version, "0.0.10");
 	assert.equal(manifest.minAppVersion, "1.10.3");
 	assert.equal(manifest.isDesktopOnly, false);
 });
