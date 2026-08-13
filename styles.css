@@ -45,9 +45,27 @@
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
+	clear: both;
+}
+
+.captions-figure-caption,
+.captions-editor-caption--figure {
+	margin-block: 0;
+}
+
+.captions-editor-caption--table {
 	margin-block-start: var(--captions-caption-space-above, 12px);
 	margin-block-end: var(--captions-caption-space-below, 12px);
-	clear: both;
+}
+
+.captions-figure-caption.captions-caption--figure-above,
+.captions-editor-caption.captions-caption--figure-above {
+	margin-block-end: var(--captions-caption-space-below, 12px);
+}
+
+.captions-figure-caption.captions-caption--figure-below,
+.captions-editor-caption.captions-caption--figure-below {
+	margin-block-start: var(--captions-caption-space-above, 12px);
 }
 
 .captions-table-caption {

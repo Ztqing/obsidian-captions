@@ -2,6 +2,12 @@
 
 All notable user-facing changes to Captions are documented here. This English changelog is the canonical source for GitHub Release notes.
 
+## 0.0.11
+
+### Fixes
+
+- Keep captioned figures at normal paragraph spacing beside following or preceding paragraphs.
+
 ## 0.0.10
 
 ### Improvements

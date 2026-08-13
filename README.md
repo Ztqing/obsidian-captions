@@ -56,7 +56,7 @@ Table: Model results
 
 The settings page provides shared alignment, font style, relative font size, spacing, figure/table positions, and an optional file-name fallback. Font size and caption spacing use direct numeric entry, with their 85% and 12px defaults shown as placeholders. Clearing either field uses its default; caption spacing separates captions from their images or tables without replacing the surrounding theme spacing. Settings follow Obsidian's configured language in English and Simplified Chinese.
 
-Captions are rendered locally without changing note source. Reading view and Live Preview use the same caption rules and appearance. Captioned tables keep the same surrounding paragraph spacing as other Reading view blocks. Source mode, ordinary links, inline Markdown images, unmatched tables, and cross-reference-looking text remain unchanged.
+Captions are rendered locally without changing note source. Reading view and Live Preview use the same caption rules and appearance. Captioned figures and tables keep the same surrounding paragraph spacing as other Reading view blocks. Source mode, ordinary links, inline Markdown images, unmatched tables, and cross-reference-looking text remain unchanged.
 
 ## Compatibility and limitations
 
