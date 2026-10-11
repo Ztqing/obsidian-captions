@@ -77,6 +77,12 @@ export class MarkdownCaptionEngine {
 		}
 		const document = this.app.vault.cachedRead(file).then(parseCaptionDocument);
 		this.documents.set(file.path, { mtime: file.stat.mtime, document });
+		void document.catch(() => {
+			const current = this.documents.get(file.path);
+			if (current?.document === document) {
+				this.documents.delete(file.path);
+			}
+		});
 		return document;
 	}
 }

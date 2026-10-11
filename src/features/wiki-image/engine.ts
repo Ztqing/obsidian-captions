@@ -6,12 +6,11 @@ import {
 
 import type { WikiImageCaptionSettings } from "./caption";
 import {
-	cleanupWikiImageCaptions,
 	hasWikiImageEmbed,
-	renderWikiImageCaptions,
 } from "./dom";
 import { createWikiImageCaptionEditorExtension } from "./live-preview";
 import { WikiImageCaptionReadingCoordinator } from "./reading-coordinator";
+import { WikiImageCaptionReadingLifecycle } from "./reading-lifecycle";
 import { WikiImageCaptionRenderChild } from "./reading-view";
 
 type SettingsProvider = () => WikiImageCaptionSettings;
@@ -19,12 +18,18 @@ type ReadingRootsProvider = () => HTMLElement[];
 
 export class WikiImageCaptionEngine {
 	private readonly readingCoordinator: WikiImageCaptionReadingCoordinator;
+	private readonly readingLifecycle: WikiImageCaptionReadingLifecycle;
 
 	constructor(
 		private readonly getSettings: SettingsProvider,
-		private readonly getReadingRoots: ReadingRootsProvider,
+		getReadingRoots: ReadingRootsProvider,
 	) {
 		this.readingCoordinator = new WikiImageCaptionReadingCoordinator(getSettings);
+		this.readingLifecycle = new WikiImageCaptionReadingLifecycle(
+			this.readingCoordinator,
+			getSettings,
+			getReadingRoots,
+		);
 	}
 
 	createEditorExtension(): Extension {
@@ -49,20 +54,10 @@ export class WikiImageCaptionEngine {
 	}
 
 	refresh(): void {
-		this.readingCoordinator.enable();
-		for (const root of this.getReadingRoots()) {
-			renderWikiImageCaptions(root, this.getSettings());
-		}
+		this.readingLifecycle.refresh();
 	}
 
 	cleanup(): void {
-		this.readingCoordinator.clear();
-		this.cleanupRoots();
-	}
-
-	private cleanupRoots(): void {
-		for (const root of this.getReadingRoots()) {
-			cleanupWikiImageCaptions(root);
-		}
+		this.readingLifecycle.cleanup();
 	}
 }

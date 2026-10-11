@@ -39,18 +39,25 @@ export class WikiImageCaptionReadingCoordinator {
 		cleanupWikiImageCaptions(root);
 	}
 
-	enable(): void {
+	enable(
+		renderInitial = true,
+		settings?: WikiImageCaptionSettings,
+	): void {
 		if (this.enabled) {
 			for (const observer of this.observers.values()) {
-				observer.refresh();
+				observer.refresh(settings);
 			}
 			return;
 		}
 
 		this.enabled = true;
 		for (const observer of this.observers.values()) {
-			observer.start();
+			observer.start(renderInitial, settings);
 		}
+	}
+
+	getRegisteredRoots(): ReadonlySet<HTMLElement> {
+		return new Set(this.observers.keys());
 	}
 
 	disable(): void {

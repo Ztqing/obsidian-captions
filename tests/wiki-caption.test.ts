@@ -12,10 +12,22 @@ import {
 	hasWikiImageEmbed,
 	renderWikiImageCaptions,
 } from "../src/features/wiki-image/dom";
-import { WikiImageCaptionObserver } from "../src/features/wiki-image/observer";
+import {
+	collectAffectedWikiImageEmbeds,
+	WikiImageCaptionObserver,
+} from "../src/features/wiki-image/observer";
 import { WikiImageCaptionReadingCoordinator } from "../src/features/wiki-image/reading-coordinator";
 
-const NO_FILE_NAME_FALLBACK = { showFileNameAsCaption: false };
+const NO_FILE_NAME_FALLBACK = {
+	showFileNameAsCaption: false,
+	alignment: "center",
+	style: "bold",
+	fontSizePercent: 85,
+	spacingAbovePx: 8,
+	spacingBelowPx: 8,
+	figurePosition: "below",
+	tablePosition: "above",
+} as const;
 const FILE_NAME_FALLBACK = { showFileNameAsCaption: true };
 
 void test("uses a Wiki image alias as the caption", () => {
@@ -157,6 +169,32 @@ void test("does not let a size-only candidate hide a later explicit alias", () =
 			imageSource: "app://obsidian.md/landscape.png",
 		}, FILE_NAME_FALLBACK),
 		"Swiss Alps",
+	);
+});
+
+void test("leaves the image intact and removes its caption while its embed is edited", () => {
+	const { document } = parseHTML([
+		'<div id="root"><span class="internal-embed image-embed"',
+		' src="assets/landscape.png" alt="Swiss Alps">',
+		'<img src="app://obsidian.md/landscape.png" alt="landscape.png">',
+		'<div class="captions-figure-caption captions-wiki-caption"',
+		' data-captions-key="wiki">Swiss Alps</div>',
+		"</span></div>",
+	].join(""));
+	const root = document.querySelector<HTMLElement>("#root");
+	if (root === null) {
+		assert.fail("Expected #root to exist");
+	}
+
+	renderWikiImageCaptions(root, {
+		...NO_FILE_NAME_FALLBACK,
+	}, () => true);
+
+	assert.equal(root.querySelector("img") !== null, true);
+	assert.equal(root.querySelector(".captions-wiki-caption"), null);
+	assert.equal(
+		root.querySelector(".internal-embed")?.classList.contains("captions-figure"),
+		false,
 	);
 });
 
@@ -390,6 +428,10 @@ void test("cleans current and legacy Wiki markers without touching other caption
 		'<img data-captions-wiki-caption="true">',
 		'<span class="captions-wiki-caption">Legacy</span>',
 		'</span>',
+		'<span class="internal-embed image-embed captions-figure">',
+		'<img src="app://obsidian.md/current.png">',
+		'<span class="captions-figure-caption" data-captions-key="wiki">Current</span>',
+		'</span>',
 		'<p><span class="captions-figure-caption" data-captions-key="figure:0">Markdown</span></p>',
 		'</div>',
 	].join(""));
@@ -399,13 +441,26 @@ void test("cleans current and legacy Wiki markers without touching other caption
 
 	assert.equal(document.querySelector(".captions-wiki-caption"), null);
 	assert.equal(document.querySelector("[data-captions-wiki-caption]"), null);
+	assert.equal(document.querySelector("[data-captions-key=wiki]"), null);
 	assert.equal(document.querySelector(".internal-embed")?.classList.contains("captions-wiki-has-caption"), false);
+	assert.equal(document.querySelectorAll(".internal-embed.captions-figure").length, 0);
 	assert.equal(document.querySelector(".captions-figure-caption")?.textContent, "Markdown");
 });
 
 void test("coalesces Wiki observer callbacks and stops after destruction", async () => {
-	const { document } = parseHTML('<div id="root"></div>');
+	const { document } = parseHTML([
+		'<div id="root">',
+		'<span id="first" class="internal-embed image-embed" src="first.png" alt="First">',
+		'<img src="app://obsidian.md/first.png" alt="first.png">',
+		'</span>',
+		'<span id="second" class="internal-embed image-embed" src="second.png" alt="Second">',
+		'<img src="app://obsidian.md/second.png" alt="second.png">',
+		'</span>',
+		'</div>',
+	].join(""));
 	const root = requireElement(document, "#root");
+	const first = requireElement(document, "#first");
+	const second = requireElement(document, "#second");
 	let callback: MutationCallback | null = null;
 	let settingsReadCount = 0;
 	const observer = new WikiImageCaptionObserver(
@@ -447,21 +502,176 @@ void test("coalesces Wiki observer callbacks and stops after destruction", async
 	await Promise.resolve();
 	assert.equal(settingsReadCount, 1);
 
+	const secondCaption = second.querySelector<HTMLElement>(
+		".captions-figure-caption",
+	);
+	assert.notEqual(secondCaption, null);
+	if (secondCaption === null) {
+		throw new Error("Expected the second Wiki caption to render.");
+	}
+	secondCaption.textContent = "Leave unchanged";
+	first.setAttribute("alt", "Updated first");
 	const mutation = {
-		type: "childList",
-		target: root,
-		addedNodes: [textNode],
-		removedNodes: [],
+		type: "attributes",
+		target: first,
+		attributeName: "alt",
 	} as unknown as MutationRecord;
 	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
 	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
 	await Promise.resolve();
 	assert.equal(settingsReadCount, 2);
+	assert.equal(
+		first.querySelector(".captions-figure-caption")?.textContent,
+		"Updated first",
+	);
+	assert.equal(secondCaption.textContent, "Leave unchanged");
 
 	observer.stop();
 	(callback as MutationCallback | null)?.([mutation], {} as MutationObserver);
 	await Promise.resolve();
 	assert.equal(settingsReadCount, 2);
+});
+
+void test("isolates queued observer work across stop and start generations", async () => {
+	const { document } = parseHTML([
+		'<div id="root">',
+		'<span id="first" class="internal-embed image-embed" src="first.png" alt="First">',
+		'<img src="app://obsidian.md/first.png" alt="first.png">',
+		'</span>',
+		'<span id="second" class="internal-embed image-embed" src="second.png" alt="Second">',
+		'<img src="app://obsidian.md/second.png" alt="second.png">',
+		'</span>',
+		'</div>',
+	].join(""));
+	const root = requireElement(document, "#root");
+	const first = requireElement(document, "#first");
+	const second = requireElement(document, "#second");
+	const callbacks: MutationCallback[] = [];
+	const observer = new WikiImageCaptionObserver(
+		root,
+		() => ({
+			showFileNameAsCaption: false,
+			alignment: "center",
+			style: "bold",
+			fontSizePercent: 85,
+			spacingAbovePx: 8,
+			spacingBelowPx: 8,
+			figurePosition: "below",
+			tablePosition: "above",
+		}),
+		(callback) => {
+			callbacks.push(callback);
+			return {
+				disconnect: () => undefined,
+				observe: () => undefined,
+				takeRecords: () => [],
+			} as unknown as MutationObserver;
+		},
+	);
+
+	observer.start(false);
+	first.setAttribute("alt", "Stale first");
+	callbacks[0]?.([{
+		type: "attributes",
+		target: first,
+		attributeName: "alt",
+	} as unknown as MutationRecord], {} as MutationObserver);
+	observer.stop();
+	observer.start(false);
+	second.setAttribute("alt", "Fresh second");
+	callbacks[1]?.([{
+		type: "attributes",
+		target: second,
+		attributeName: "alt",
+	} as unknown as MutationRecord], {} as MutationObserver);
+	await Promise.resolve();
+
+	assert.equal(first.querySelector(".captions-figure-caption"), null);
+	assert.equal(
+		second.querySelector(".captions-figure-caption")?.textContent,
+		"Fresh second",
+	);
+	observer.stop();
+});
+
+void test("collects only Wiki embeds affected by external mutations", () => {
+	const { document } = parseHTML([
+		'<div id="root">',
+		'<span id="existing" class="internal-embed image-embed">',
+		'<img id="existing-image">',
+		'</span>',
+		'</div>',
+	].join(""));
+	const root = requireElement(document, "#root");
+	const existing = requireElement(document, "#existing");
+	const existingImage = requireElement(document, "#existing-image");
+	const wrapper = document.createElement("div");
+	const added = document.createElement("span");
+	added.id = "added";
+	added.className = "internal-embed image-embed";
+	added.appendChild(document.createElement("img"));
+	wrapper.appendChild(added);
+
+	const affected = collectAffectedWikiImageEmbeds([{
+		type: "attributes",
+		target: existingImage,
+		attributeName: "src",
+	} as unknown as MutationRecord, {
+		type: "childList",
+		target: existing,
+		addedNodes: [existingImage],
+		removedNodes: [],
+	} as unknown as MutationRecord, {
+		type: "childList",
+		target: root,
+		addedNodes: [wrapper],
+		removedNodes: [],
+	} as unknown as MutationRecord]);
+
+	assert.deepEqual(affected, [existing, added]);
+	assert.deepEqual(collectAffectedWikiImageEmbeds([{
+		type: "childList",
+		target: root,
+		addedNodes: [document.createTextNode("unrelated")],
+		removedNodes: [],
+	} as unknown as MutationRecord]), []);
+});
+
+void test("does not render a detached Wiki embed queued before removal", async () => {
+	const { document } = parseHTML([
+		'<div id="root">',
+		'<span id="embed" class="internal-embed image-embed" src="image.png" alt="Image">',
+		'<img src="app://obsidian.md/image.png" alt="image.png">',
+		'</span>',
+		'</div>',
+	].join(""));
+	const root = requireElement(document, "#root");
+	const embed = requireElement(document, "#embed");
+	const callbackRef: { current?: MutationCallback } = {};
+	const observer = new WikiImageCaptionObserver(
+		root,
+		() => NO_FILE_NAME_FALLBACK,
+		(handler) => {
+			callbackRef.current = handler;
+			return { observe() {}, disconnect() {} } as unknown as MutationObserver;
+		},
+	);
+
+	observer.start();
+	embed.setAttribute("alt", "Updated");
+	const mutationCallback = callbackRef.current;
+	if (mutationCallback === undefined) {
+		throw new Error("Expected the observer callback to be registered.");
+	}
+	mutationCallback([{
+		type: "attributes",
+		target: embed,
+		attributeName: "alt",
+	} as unknown as MutationRecord], {} as MutationObserver);
+	embed.remove();
+	await Promise.resolve();
+	assert.equal(document.querySelector(".captions-figure-caption"), null);
+	observer.stop();
 });
 
 void test("observes only external Wiki image mutations", () => {

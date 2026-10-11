@@ -20,10 +20,13 @@ interface SectionRegistration {
 	sectionInfo: CaptionReadingSectionInformation;
 	loadDocument: DocumentLoader;
 	generation: number;
+	loading: boolean;
 }
 
 interface DocumentRenderState {
+	docId: string;
 	document: CaptionDocument;
+	documentLoadGeneration: number;
 	sections: Map<HTMLElement, CaptionReadingSection>;
 	scheduled: boolean;
 }
@@ -32,6 +35,7 @@ interface DocumentRenderState {
 export class CaptionReadingCoordinator {
 	private readonly registrations = new Map<HTMLElement, SectionRegistration>();
 	private readonly documents = new Map<string, DocumentRenderState>();
+	private readonly documentLoadGenerations = new Map<string, number>();
 	private enabled = false;
 
 	constructor(private readonly getSettings: SettingsProvider) {}
@@ -49,9 +53,12 @@ export class CaptionReadingCoordinator {
 			sectionInfo,
 			loadDocument,
 			generation: (previous?.generation ?? 0) + 1,
+			loading: false,
 		};
 		if (previous !== undefined) {
+			previous.generation += 1;
 			this.removeRenderedSection(previous);
+			cleanupCaptionReadingView(previous.root);
 		}
 		this.registrations.set(root, registration);
 
@@ -88,6 +95,11 @@ export class CaptionReadingCoordinator {
 		if (!this.enabled) {
 			return;
 		}
+		for (const registration of this.registrations.values()) {
+			if (!registration.loading && !this.hasRenderedSection(registration)) {
+				this.activate(registration);
+			}
+		}
 		for (const state of this.documents.values()) {
 			this.scheduleRender(state);
 		}
@@ -97,9 +109,11 @@ export class CaptionReadingCoordinator {
 		this.enabled = false;
 		for (const registration of this.registrations.values()) {
 			registration.generation += 1;
+			registration.loading = false;
 			cleanupCaptionReadingView(registration.root);
 		}
 		this.documents.clear();
+		this.documentLoadGenerations.clear();
 	}
 
 	clear(): void {
@@ -108,8 +122,28 @@ export class CaptionReadingCoordinator {
 	}
 
 	private activate(registration: SectionRegistration): void {
+		if (registration.loading) {
+			return;
+		}
+		registration.loading = true;
 		const generation = registration.generation;
-		void registration.loadDocument().then((document) => {
+		const documentLoadGeneration = this.nextDocumentLoadGeneration(registration.docId);
+		let loading: Promise<CaptionDocument>;
+		try {
+			loading = registration.loadDocument();
+		} catch (error: unknown) {
+			this.handleLoadFailure(
+				registration,
+				generation,
+				documentLoadGeneration,
+				error,
+			);
+			return;
+		}
+		void loading.then((document) => {
+			if (registration.generation === generation) {
+				registration.loading = false;
+			}
 			if (
 				!this.enabled
 				|| this.registrations.get(registration.root) !== registration
@@ -118,15 +152,29 @@ export class CaptionReadingCoordinator {
 				return;
 			}
 
-			let state = this.documents.get(registration.docId);
-			if (state === undefined) {
-				state = { document, sections: new Map(), scheduled: false };
+			const existingState = this.documents.get(registration.docId);
+			if (
+				existingState !== undefined
+				&& existingState.document !== document
+				&& existingState.documentLoadGeneration > documentLoadGeneration
+			) {
+				return;
+			}
+			const state: DocumentRenderState = existingState ?? {
+				docId: registration.docId,
+				document,
+				documentLoadGeneration,
+				sections: new Map(),
+				scheduled: false,
+			};
+			if (existingState === undefined) {
 				this.documents.set(registration.docId, state);
 			} else if (state.document !== document) {
 				for (const section of state.sections.values()) {
 					cleanupCaptionReadingView(section.root);
 				}
 				state.document = document;
+				state.documentLoadGeneration = documentLoadGeneration;
 			}
 
 			state.sections.set(registration.root, {
@@ -135,7 +183,42 @@ export class CaptionReadingCoordinator {
 				lineEnd: registration.sectionInfo.lineEnd,
 			});
 			this.scheduleRender(state);
-		}, () => undefined);
+		}, (error: unknown) => {
+			this.handleLoadFailure(
+				registration,
+				generation,
+				documentLoadGeneration,
+				error,
+			);
+		});
+	}
+
+	private handleLoadFailure(
+		registration: SectionRegistration,
+		generation: number,
+		documentLoadGeneration: number,
+		error: unknown,
+	): void {
+		if (registration.generation === generation) {
+			registration.loading = false;
+		}
+		if (
+			!this.enabled
+			|| this.registrations.get(registration.root) !== registration
+			|| registration.generation !== generation
+			|| this.documentLoadGenerations.get(registration.docId) !== documentLoadGeneration
+		) {
+			return;
+		}
+		this.removeRenderedSection(registration);
+		cleanupCaptionReadingView(registration.root);
+		console.error("Failed to load Markdown caption document.", error);
+	}
+
+	private nextDocumentLoadGeneration(docId: string): number {
+		const generation = (this.documentLoadGenerations.get(docId) ?? 0) + 1;
+		this.documentLoadGenerations.set(docId, generation);
+		return generation;
 	}
 
 	private removeRenderedSection(registration: SectionRegistration): void {
@@ -170,6 +253,10 @@ export class CaptionReadingCoordinator {
 	}
 
 	private hasDocumentState(target: DocumentRenderState): boolean {
-		return Array.from(this.documents.values()).includes(target);
+		return this.documents.get(target.docId) === target;
+	}
+
+	private hasRenderedSection(registration: SectionRegistration): boolean {
+		return this.documents.get(registration.docId)?.sections.has(registration.root) ?? false;
 	}
 }

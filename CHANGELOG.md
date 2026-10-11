@@ -2,11 +2,22 @@
 
 All notable user-facing changes to Captions are documented here. This English changelog is the canonical source for GitHub Release notes.
 
-## 0.0.11
+## 1.0.10
+
+### Improvements
+
+- Keep Wiki image captions responsive when images load or caption settings change in notes containing many images.
 
 ### Fixes
 
 - Keep captioned figures at normal paragraph spacing beside following or preceding paragraphs.
+- Prevent pipe-table caption source text from appearing alongside the rendered caption in Reading view and Live Preview.
+
+### Known Issues
+
+- Table captions in Live Preview may not refresh immediately after changing alignment settings.
+- Wiki image captions and aliases may not enter source-editing mode as expected when clicked; Wiki captions may disappear while editing, unlike Markdown image captions.
+- Wiki images may turn white or disappear while the Chinese input method candidate window is open.
 
 ## 0.0.10
 

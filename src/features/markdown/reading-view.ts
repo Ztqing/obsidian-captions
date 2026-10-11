@@ -381,12 +381,21 @@ function findOrCreateTableCaptionMarker(
 	const textNode = target.attributeText === null
 		? findTextNodeContaining(root, target.markerText)
 		: findTextNodeContaining(root, target.attributeText);
-	const block = textNode?.parentElement?.closest("p") ?? null;
+	const block = textNode?.parentElement?.closest("p")
+		?? findRenderedTableCaptionBlock(root, target.key);
 	if (block !== null) {
 		block.classList.add(SOURCE_CAPTION_CLASS);
 		block.dataset[CAPTION_KEY] = target.key;
 	}
 	return block;
+}
+
+function findRenderedTableCaptionBlock(root: HTMLElement, key: string): HTMLElement | null {
+	return collectElements<HTMLElement>(root, "p").find((paragraph) => {
+		const managedKey = paragraph.dataset[CAPTION_KEY];
+		return (managedKey === undefined || managedKey === key)
+			&& /^\s*(?::|Table:)\s*/iu.test(paragraph.textContent ?? "");
+	}) ?? null;
 }
 
 function findStandardImage(root: HTMLElement, caption: string): HTMLImageElement | undefined {

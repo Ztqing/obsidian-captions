@@ -265,8 +265,9 @@ export class CaptionsSettingTab extends PluginSettingTab {
 			await this.controller.saveSettings();
 			this.controller.refreshCaptions();
 		});
-		this.saveQueue = task.catch(() => undefined);
-		return task;
+		const handledTask = task.catch(() => undefined);
+		this.saveQueue = handledTask;
+		return handledTask;
 	}
 
 	private scheduleAppearanceSaveAndRefresh(): void {

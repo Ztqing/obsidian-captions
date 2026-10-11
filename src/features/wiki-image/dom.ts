@@ -31,9 +31,37 @@ export function hasWikiImageEmbed(
 export function renderWikiImageCaptions(
 	root: HTMLElement,
 	settings: WikiImageCaptionSettings,
+	shouldSkipEmbed: (embed: HTMLElement) => boolean = () => false,
+): HTMLElement[] {
+	const embeds = collectWikiImageEmbeds(root);
+	for (const embed of embeds) {
+		if (shouldSkipEmbed(embed)) {
+			cleanupWikiImageEmbedCaption(embed);
+		} else {
+			renderWikiImageEmbeds([embed], settings);
+		}
+	}
+	return embeds;
+}
+
+export function renderWikiImageEmbeds(
+	embeds: Iterable<HTMLElement>,
+	settings: WikiImageCaptionSettings,
 ): void {
-	for (const embed of collectWikiImageEmbeds(root)) {
+	for (const embed of embeds) {
+		if (!embed.matches(WIKI_IMAGE_SELECTOR)) {
+			continue;
+		}
 		renderWikiImageCaption(embed, settings);
+	}
+}
+
+export function cleanupWikiImageEmbedCaption(embed: HTMLElement): void {
+	findDirectCaption(embed)?.remove();
+	removeCaptionClass(embed);
+	const image = embed.querySelector<HTMLImageElement>("img");
+	if (image !== null) {
+		delete image.dataset[CAPTION_MARKER];
 	}
 }
 
@@ -88,8 +116,6 @@ function renderWikiImageCaption(
 	const existingCaption = findDirectCaption(embed);
 
 	if (image === null) {
-		existingCaption?.remove();
-		removeCaptionClass(embed);
 		return;
 	}
 

@@ -35,6 +35,7 @@ export interface RenderedDecoration {
 	side: number;
 	className: string | null;
 	textContent: string | null;
+	fontSize: string | null;
 }
 
 interface DecorationFieldState {
@@ -88,5 +89,6 @@ function renderDecoration(
 		side: spec.side ?? 0,
 		className: element?.className || null,
 		textContent: element?.textContent ?? null,
+		fontSize: element?.style.getPropertyValue("--captions-caption-font-size") ?? null,
 	};
 }

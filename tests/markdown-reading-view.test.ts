@@ -29,7 +29,7 @@ void test("renders Markdown images and tables without IDs, labels, or references
 		"| --- | ---: |",
 		"| A | 92% |",
 		"",
-		": Model results {#tbl:results}",
+		"Table: 表 1.1 传统智能体与 LLM 驱动智能体的核心对比",
 		"",
 		"See [@fig:architecture] and @tbl-results.",
 	].join("\n");
@@ -37,7 +37,7 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	const { document } = parseHTML([
 		'<div id="figure"><p><img src="architecture.png" alt="Architecture">{#fig:architecture}</p></div>',
 		'<div id="table" class="el-table"><table><tbody><tr><td>A</td><td>92%</td></tr></tbody></table></div>',
-		'<div id="caption"><p>: Model results {#tbl:results}</p></div>',
+		'<div id="caption"><p><span>Table:</span> 表 1.1 传统智能体与 LLM 驱动智能体的核心对比</p></div>',
 		'<div id="reference"><p>See [@fig:architecture] and @tbl-results.</p></div>',
 	].join(""));
 	const figure = requireElement(document, "#figure");
@@ -53,11 +53,12 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	], model, SETTINGS);
 
 	assert.equal(requireElement(document, ".captions-figure-caption").textContent, "Architecture");
-	assert.equal(requireElement(document, "table > caption").textContent, "Model results");
+	assert.equal(requireElement(document, "table > caption").textContent, "表 1.1 传统智能体与 LLM 驱动智能体的核心对比");
 	assert.equal(document.querySelector("#figure > p")?.getAttribute("id"), null);
 	assert.equal(reference.textContent, "See [@fig:architecture] and @tbl-results.");
 	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
 	assert.equal(document.querySelectorAll(".captions-table-caption").length, 1);
+	assert.equal(caption.querySelector("p")?.classList.contains("captions-source-caption"), true);
 	assert.equal(table.classList.contains("captions-table"), true);
 	assert.equal(requireElement(document, "table").classList.contains("captions-table"), false);
 
@@ -79,7 +80,7 @@ void test("renders Markdown images and tables without IDs, labels, or references
 	assert.equal(document.querySelector("table > caption"), null);
 	assert.equal(table.classList.contains("captions-table"), false);
 	assert.equal(requireElement(document, "table").classList.contains("captions-table"), false);
-	assert.equal(caption.textContent, ": Model results {#tbl:results}");
+	assert.equal(caption.textContent, "Table: 表 1.1 传统智能体与 LLM 驱动智能体的核心对比");
 });
 
 void test("uses the shared file-name fallback and leaves ordinary empty images alone", () => {
@@ -126,6 +127,157 @@ void test("coalesces Reading view registrations for one document", async () => {
 
 	assert.equal(loadCount, 2);
 	assert.equal(document.querySelectorAll(".captions-figure-caption").length, 1);
+	coordinator.clear();
+});
+
+void test("ignores an out-of-order document load from the same note", async () => {
+	const oldModel = parseCaptionDocument("![Old](old.png)");
+	const newModel = parseCaptionDocument("![New](new.png)");
+	const { document } = parseHTML([
+		'<div id="old"><p><img src="old.png" alt="Old"></p></div>',
+		'<div id="new"><p><img src="new.png" alt="New"></p></div>',
+	].join(""));
+	const oldRoot = requireElement(document, "#old");
+	const newRoot = requireElement(document, "#new");
+	const coordinator = new CaptionReadingCoordinator(() => SETTINGS);
+	let resolveOld: (model: typeof oldModel) => void = () => undefined;
+	let resolveNew: (model: typeof newModel) => void = () => undefined;
+	const oldLoad = new Promise<typeof oldModel>((resolve) => {
+		resolveOld = resolve;
+	});
+	const newLoad = new Promise<typeof newModel>((resolve) => {
+		resolveNew = resolve;
+	});
+
+	coordinator.registerSection("note", oldRoot, { lineStart: 0, lineEnd: 0 }, () => oldLoad);
+	coordinator.registerSection("note", newRoot, { lineStart: 0, lineEnd: 0 }, () => newLoad);
+	coordinator.enable();
+
+	resolveNew(newModel);
+	await flushUpdates();
+	assert.equal(newRoot.querySelector(".captions-figure-caption")?.textContent, "New");
+
+	resolveOld(oldModel);
+	await flushUpdates();
+	assert.equal(newRoot.querySelector(".captions-figure-caption")?.textContent, "New");
+	assert.equal(oldRoot.querySelector(".captions-figure-caption"), null);
+	coordinator.clear();
+});
+
+void test("retries a failed document load after refresh", async () => {
+	const model = parseCaptionDocument("![Architecture](architecture.png)");
+	const { document } = parseHTML('<div id="root"><p><img src="architecture.png" alt="Architecture"></p></div>');
+	const root = requireElement(document, "#root");
+	const coordinator = new CaptionReadingCoordinator(() => SETTINGS);
+	let attempts = 0;
+	const loadDocument = (): Promise<typeof model> => {
+		attempts += 1;
+		return attempts === 1
+			? Promise.reject(new Error("transient read failure"))
+			: Promise.resolve(model);
+	};
+
+	coordinator.registerSection("note", root, { lineStart: 0, lineEnd: 0 }, loadDocument);
+	coordinator.enable();
+	await flushUpdates();
+	assert.equal(attempts, 1);
+	assert.equal(root.querySelector(".captions-figure-caption"), null);
+
+	coordinator.refresh();
+	await flushUpdates();
+	assert.equal(attempts, 2);
+	assert.equal(root.querySelector(".captions-figure-caption")?.textContent, "Architecture");
+	coordinator.clear();
+});
+
+void test("cleans a replaced section before accepting its new document", async () => {
+	const firstModel = parseCaptionDocument("![First](first.png)");
+	const secondModel = parseCaptionDocument("![Second](second.png)");
+	const { document } = parseHTML('<div id="root"><p><img src="first.png" alt="First"></p></div>');
+	const root = requireElement(document, "#root");
+	const coordinator = new CaptionReadingCoordinator(() => SETTINGS);
+
+	coordinator.registerSection(
+		"note",
+		root,
+		{ lineStart: 0, lineEnd: 0 },
+		() => Promise.resolve(firstModel),
+	);
+	coordinator.enable();
+	await flushUpdates();
+	assert.equal(root.querySelector(".captions-figure-caption")?.textContent, "First");
+
+	coordinator.registerSection(
+		"note",
+		root,
+		{ lineStart: 0, lineEnd: 0 },
+		() => Promise.resolve(secondModel),
+	);
+	assert.equal(root.querySelector(".captions-figure-caption"), null);
+	await flushUpdates();
+	assert.equal(root.querySelector(".captions-figure-caption")?.textContent, "Second");
+	coordinator.clear();
+});
+
+void test("retries a failed document load without escaping the coordinator", async () => {
+	const { document } = parseHTML('<div id="root"><p><img src="architecture.png" alt="Architecture"></p></div>');
+	const root = requireElement(document, "#root");
+	const coordinator = new CaptionReadingCoordinator(() => SETTINGS);
+	const model = parseCaptionDocument("![Architecture](architecture.png)");
+	let attempts = 0;
+	const errors: unknown[] = [];
+	const originalError = console.error;
+	console.error = (...arguments_: unknown[]): void => {
+		errors.push(arguments_);
+	};
+
+	try {
+		coordinator.registerSection("note", root, { lineStart: 0, lineEnd: 0 }, () => {
+			attempts += 1;
+			if (attempts === 1) {
+				throw new Error("temporary read failure");
+			}
+			return Promise.resolve(model);
+		});
+		coordinator.enable();
+		await flushUpdates();
+		assert.equal(attempts, 1);
+		assert.equal(errors.length, 1);
+		assert.equal(root.querySelector(".captions-figure-caption"), null);
+
+		coordinator.refresh();
+		await flushUpdates();
+		assert.equal(attempts, 2);
+		assert.equal(
+			root.querySelector(".captions-figure-caption")?.textContent,
+			"Architecture",
+		);
+	} finally {
+		console.error = originalError;
+		coordinator.clear();
+	}
+});
+
+void test("keeps repeated refreshes idempotent after a document loads", async () => {
+	const { document } = parseHTML('<div id="root"><p><img src="architecture.png" alt="Architecture"></p></div>');
+	const root = requireElement(document, "#root");
+	const coordinator = new CaptionReadingCoordinator(() => SETTINGS);
+	const model = parseCaptionDocument("![Architecture](architecture.png)");
+	let loadCount = 0;
+	const loadDocument = (): Promise<typeof model> => {
+		loadCount += 1;
+		return Promise.resolve(model);
+	};
+
+	coordinator.registerSection("note", root, { lineStart: 0, lineEnd: 0 }, loadDocument);
+	coordinator.enable();
+	await flushUpdates();
+	coordinator.refresh();
+	coordinator.refresh();
+	await flushUpdates();
+
+	assert.equal(loadCount, 1);
+	assert.equal(root.querySelectorAll(".captions-figure-caption").length, 1);
 	coordinator.clear();
 });
 

@@ -3,6 +3,10 @@ import { Plugin } from "obsidian";
 
 import { CaptionEngine } from "./features/caption-engine";
 import {
+	createEditorRefreshExtension,
+	refreshCaptionEditorViews,
+} from "./features/shared/editor-refresh";
+import {
 	createDefaultSettings,
 	normalizeSettings,
 	type CaptionsPluginSettings,
@@ -25,6 +29,7 @@ export default class CaptionsPlugin extends Plugin {
 		);
 
 		this.editorExtensions.push(
+			createEditorRefreshExtension(),
 			...this.captionEngine.createEditorExtensions(),
 		);
 		this.registerEditorExtension(this.editorExtensions);
@@ -52,6 +57,7 @@ export default class CaptionsPlugin extends Plugin {
 		}
 		this.app.workspace.updateOptions();
 		this.captionEngine.refresh();
+		refreshCaptionEditorViews();
 	}
 
 	private getMarkdownRoots(): HTMLElement[] {

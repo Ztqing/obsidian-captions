@@ -13,9 +13,13 @@ import {
 } from "@codemirror/view";
 
 import {
+	getCaptionAppearance,
 	resolveImageCaption,
 	type CaptionSettings,
 } from "../../caption-settings";
+import {
+	isCaptionRefreshTransaction,
+} from "../shared/editor-refresh";
 import {
 	CAPTION_KEY,
 	updateCaptionElement,
@@ -32,6 +36,7 @@ type DocumentParser = (source: string) => CaptionDocument;
 interface LivePreviewCaptions {
 	document: CaptionDocument | null;
 	decorations: DecorationSet;
+	appearanceSignature: string;
 }
 
 export function createMarkdownCaptionEditorExtension(
@@ -81,6 +86,17 @@ class CaptionWidget extends WidgetType {
 		const caption = view.dom.ownerDocument.createElement("div");
 		caption.dataset[CAPTION_KEY] = this.target.key;
 		updateCaptionElement(caption, this.captionText, this.settings, this.target.kind, true);
+		if (this.target.kind === "table") {
+			caption.addEventListener("mousedown", (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				view.focus();
+				view.dispatch({
+					selection: { anchor: getTableCaptionSourcePosition(this.target as Extract<CaptionTarget, { kind: "table" }>) },
+					scrollIntoView: true,
+				});
+			});
+		}
 		return caption;
 	}
 }
@@ -92,10 +108,18 @@ function createLivePreviewCaptions(
 	parseDocument: DocumentParser,
 ): LivePreviewCaptions {
 	if (state.field(livePreviewField, false) !== true) {
-		return { document: null, decorations: Decoration.none };
+		return {
+			document: null,
+			decorations: Decoration.none,
+			appearanceSignature: getDocumentAppearanceSignature(settings),
+		};
 	}
 	const document = parseDocument(state.doc.toString());
-	return { document, decorations: buildDecorations(state, document, settings) };
+	return {
+		document,
+		decorations: buildDecorations(state, document, settings),
+		appearanceSignature: getDocumentAppearanceSignature(settings),
+	};
 }
 
 function updateLivePreviewCaptions(
@@ -108,19 +132,28 @@ function updateLivePreviewCaptions(
 	const isLivePreview = transaction.state.field(livePreviewField, false) === true;
 	const wasLivePreview = transaction.startState.field(livePreviewField, false) === true;
 	if (!isLivePreview) {
-		return value.document === null && value.decorations === Decoration.none
+		return value.document === null
+			&& value.decorations === Decoration.none
+			&& value.appearanceSignature === getDocumentAppearanceSignature(settings)
 			? value
-			: { document: null, decorations: Decoration.none };
+			: {
+				document: null,
+				decorations: Decoration.none,
+				appearanceSignature: getDocumentAppearanceSignature(settings),
+			};
 	}
 
 	const shouldParse = transaction.docChanged || !wasLivePreview || value.document === null;
 	const document = shouldParse
 		? parseDocument(transaction.state.doc.toString())
 		: value.document;
+	const appearanceSignature = getDocumentAppearanceSignature(settings);
 	const shouldBuild = shouldParse
 		|| transaction.selection !== undefined
 		|| transaction.reconfigured
-		|| !wasLivePreview;
+		|| isCaptionRefreshTransaction(transaction)
+		|| !wasLivePreview
+		|| value.appearanceSignature !== appearanceSignature;
 	return shouldBuild
 		? {
 			document,
@@ -129,6 +162,7 @@ function updateLivePreviewCaptions(
 				document as CaptionDocument,
 				settings,
 			),
+			appearanceSignature,
 		}
 		: value;
 }
@@ -147,10 +181,14 @@ function buildDecorations(
 				settings.showFileNameAsCaption,
 			)
 			: target.caption;
+		const isEditingMarker = target.marker !== null
+			&& selectionOverlaps(state, target.marker.from, target.marker.to);
+		const isEditingTarget = target.kind === "figure"
+			&& selectionOverlaps(state, target.target.from, target.target.to);
 
 		if (
 			target.marker !== null
-			&& !selectionOverlaps(state, target.marker.from, target.marker.to)
+			&& !isEditingMarker
 		) {
 			const hiddenTo = target.kind === "table" && target.marker.to < state.doc.length
 				? target.marker.to + 1
@@ -161,7 +199,11 @@ function buildDecorations(
 			));
 		}
 
-		if (captionText === null) {
+		if (
+			captionText === null
+			|| (target.kind === "table" && isEditingMarker)
+			|| isEditingTarget
+		) {
 			continue;
 		}
 		const position = target.kind === "figure"
@@ -176,18 +218,29 @@ function buildDecorations(
 	return Decoration.set(ranges, true);
 }
 
+function getTableCaptionSourcePosition(	target: Extract<CaptionTarget, { kind: "table" }>,
+): number {
+	const markerPrefix = /^Table:\\s*|^:\\s*/iu.exec(target.markerText)?.[0] ?? "";
+	return target.marker.from + markerPrefix.length;
+}
+
 function selectionOverlaps(state: EditorState, from: number, to: number): boolean {
-	return state.selection.ranges.some((range) => range.from <= to && range.to >= from);
+	return state.selection.ranges.some((range) => {
+		if (range.from === range.to) {
+			return range.from > from && range.from < to;
+		}
+		return range.from < to && range.to > from;
+	});
 }
 
 function getAppearanceSignature(settings: CaptionSettings, kind: CaptionTarget["kind"]): string {
-	const position = kind === "figure" ? settings.figurePosition : settings.tablePosition;
+	return getCaptionAppearance(settings, kind).signature;
+}
+
+function getDocumentAppearanceSignature(settings: CaptionSettings): string {
 	return [
-		settings.alignment,
-		settings.style,
-		settings.fontSizePercent,
-		settings.spacingAbovePx,
-		settings.spacingBelowPx,
-		position,
+		getAppearanceSignature(settings, "figure"),
+		getAppearanceSignature(settings, "table"),
+		settings.showFileNameAsCaption,
 	].join("|");
 }
